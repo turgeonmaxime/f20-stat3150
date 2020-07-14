@@ -1,0 +1,319 @@
+---
+title: "Visualization"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 4690--Applied Multivariate Analysis
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+## Tidyverse
+
+  - For graphics, I personally prefer using `ggplot2` than base `R` functions.
+    + Of course, you're free to use whatever you prefer!
+  - Therefore, I often use the `tidyverse` packages to prepare data for visualization
+  - Great resources:
+    + The book [*R for Data Science*](https://r4ds.had.co.nz/)
+    + RStudio's [cheatsheets](https://www.rstudio.com/resources/cheatsheets/)
+
+## Pipe operator
+
+  - One of the important features of the `tidyverse` is the pipe operator `%>%`
+  - It takes the output of a function (or of an expression) and uses it as input for the next function (or expression)
+
+---
+
+```{r, message = FALSE, eval = FALSE}
+library(tidyverse)
+
+count(mtcars, cyl)
+# Or with the pipe
+mtcars %>% count(cyl)
+```
+
+## Pipe operator
+
+  - Note that the LHS (`mtcars`) becomes the first argument of the function appearing on the RHS (`count`)
+  - In more complex examples, where multiple transformations are applied one after another, the pipe operator improves readability and avoids creating too many intermediate variables.
+
+## Main tidyverse functions
+
+  - `mutate`: Create a new variable as a function of the other variables
+```{r eval = FALSE}
+mutate(mtcars, liters_per_100km = mpg/235.215)
+```
+  - `filter`: Keep only rows for which some condition is `TRUE`
+```{r eval = FALSE}
+filter(mtcars, cyl %in% c(6, 8))
+```
+  - `summarise`: Apply summary function to some variables. Often used with `group_by`.
+```{r eval = FALSE}
+mtcars %>% group_by(cyl) %>% 
+  summarise(avg_mpg = mean(mpg))
+```
+
+# Data Visualization
+
+## Main principles
+
+Why would we want to visualize data?
+
+  - Quality control
+  - Identify outliers
+  - Find patterns of interest (EDA)
+  
+## Visualizing multivariate data
+
+  - To start, you can visualize multivariate data one variable at a time.
+  - Therefore, you can use the same visualizing tools you're likely familiar with.
+  
+## Histogram {.allowframebreaks}
+
+```{r, message=FALSE}
+library(tidyverse)
+library(dslabs)
+
+dim(olive)
+
+olive %>% 
+  ggplot(aes(oleic)) + 
+  geom_histogram()
+
+olive %>% 
+  ggplot(aes(oleic, fill = region)) + 
+  geom_histogram() + 
+  theme(legend.position = 'top')
+
+# Or with facets
+olive_bg <- olive %>% dplyr::select(-region)
+olive %>% 
+  ggplot(aes(oleic, fill = region)) + 
+  geom_histogram(data = olive_bg, 
+                 fill = 'grey') +
+  geom_histogram() +
+  facet_grid(. ~ region) +
+  theme(legend.position = 'top')
+```
+
+## Density plot {.allowframebreaks}
+
+  - Another way to estimate the density is with *kernel density estimators*.
+  - Let $X_1, \ldots, X_n$ be our IID sample. For $K$ a non-negative function and $h > 0$ a smoothing parameter, we have
+  $$ \hat{f}_n(x) = \frac{1}{nh} \sum_{i=1}^nK\left(\frac{x - X_i}{h}\right).$$
+  - Many functions $K$ can be used: gaussian, rectangular, triangular, Epanechnikov, biweight, cosine or optcosine (e.g. see [Wikipedia](https://en.wikipedia.org/wiki/Kernel_(statistics)#Kernel_functions_in_common_use))
+
+```{r, message=FALSE}
+olive %>% 
+  ggplot(aes(oleic)) + 
+  geom_density()
+
+olive %>% 
+  ggplot(aes(oleic, fill = region)) + 
+  geom_density(alpha = 0.5) + 
+  theme(legend.position = 'top')
+```
+
+## ECDF plot {.allowframebreaks}
+
+  - Density plots are "smoothed histograms"
+  - The smoothing can hide important details, or even create artifacts
+  - Another way of looking at the distribution: **Empirical CDFs**
+    + Easily compute/compare quantiles
+    + Steepness corresponds to variance
+
+```{r, message=FALSE}
+olive %>% 
+  ggplot(aes(oleic)) + 
+  stat_ecdf() + 
+  ylab("Cumulative Probability")
+
+# You can add a "rug"
+olive %>% 
+  ggplot(aes(oleic)) + 
+  stat_ecdf() + 
+  geom_rug(sides = "b") + 
+  ylab("Cumulative Probability")
+
+olive %>% 
+  ggplot(aes(oleic, colour = region)) + 
+  stat_ecdf() + 
+  ylab("Cumulative Probability") + 
+  theme(legend.position = 'top')
+```
+
+## Boxplot {.allowframebreaks}
+
+  - Box plots are a simple way to display important quantiles and identify outliers
+  - Components (per Tukey):
+    + A box delimiting the first and third quartile;
+    + A line indicating the median;
+    + Whiskers corresponding to the lowest datum still within 1.5 IQR of the lower quartile, and the highest datum still within 1.5 IQR of the upper quartile;
+    + Any datum that falls outside the whiskers is considered a (potential) outlier.
+
+```{r, message=FALSE}
+olive %>% 
+  ggplot(aes(y = oleic)) + 
+  geom_boxplot(x = 0)
+
+olive %>% 
+  ggplot(aes(x = region, y = oleic)) + 
+  geom_boxplot()
+
+# Add all points on top of boxplots
+# Note: need to remove outliers or you will get 
+#       duplicates
+olive %>% 
+  ggplot(aes(x = region, y = oleic)) + 
+  geom_boxplot(outlier.colour = NA) +
+  geom_jitter(width = 0.25, height = 0)
+```
+
+# Bivariate plots
+
+## Scatter plot {.allowframebreaks}
+
+  - The plots above displayed information on a single variable at a time.
+  - The simplest way to represent the relationship between two variables is a *scatter plot*.
+  - Technically still possible with three variables, but typically more difficult to read.
+  
+```{r}
+stars %>% 
+  ggplot(aes(magnitude, temp)) + 
+  geom_point()
+
+stars %>% 
+  ggplot(aes(magnitude, temp)) + 
+  geom_point(aes(colour = type))
+```
+
+```{r}
+library(scatterplot3d)
+
+greenhouse_gases %>% 
+  spread(gas, concentration) %>% 
+  with(scatterplot3d(CH4,   # x axis
+                     CO2,   # y axis
+                     N2O    # z axis
+))
+```
+
+## Bivariate density plot {.allowframebreaks}
+
+```{r}
+stars %>% 
+  ggplot(aes(magnitude, temp)) + 
+  geom_point(aes(colour = type)) +
+  geom_density_2d()
+```
+
+## Bagplot {.allowframebreaks}
+
+  - Introduced in 1999 by Rousseuw et al. as a bivariate generalization of Tukey's boxplot.
+  - Help visualize location, spread, skewness, and identify potential outliers.
+  - Components (details omitted):
+    + The *bag*, a polygon "at the center of the data cloud" that contains at most 50% of the data points.
+    + The *fence*, corresponding to an inflation of the bag (typically by a factor of 3). Observations outside the fence are potential outliers.
+    + The *loop*, which is the convex hull of the non-outliers.
+
+```{r, cache = TRUE, warning = FALSE, message = FALSE}
+devtools::source_gist("00772ccea2dd0b0f1745", 
+                      filename = "000_geom_bag.r")
+devtools::source_gist("00772ccea2dd0b0f1745", 
+                      filename = "001_bag_functions.r")
+
+stars %>% 
+  ggplot(aes(magnitude, temp)) + 
+  geom_bag() + 
+  theme_bw()
+
+stars %>% 
+  ggplot(aes(magnitude, temp)) + 
+  geom_bag() + 
+  geom_point(aes(colour = type)) +
+  theme_bw()
+
+gapminder %>%
+  filter(year == 2012,
+         !is.na(infant_mortality)) %>% 
+  ggplot(aes(infant_mortality, life_expectancy)) + 
+  geom_bag(aes(fill = continent)) + 
+  geom_point(aes(colour = continent)) +
+  theme_bw()
+
+gapminder %>%
+  filter(year == 2012,
+         !is.na(infant_mortality)) %>% 
+  ggplot(aes(infant_mortality, life_expectancy)) + 
+  geom_bag(aes(fill = continent)) + 
+  geom_point(aes(colour = continent)) +
+  facet_wrap(~continent) +
+  theme_bw()
+```
+
+# Beyond two variables
+
+## Limitations
+
+  - As we saw, three-dimensional scatter plots can be hard to interpret.
+  - And three-dimensional bagplots would be even harder!
+  - Density plots can technically be constructed for any dimension
+    + But as the dimension increases, its performance *decreases* rapidly
+  - **Solution**: We can look at each variable marginally and at each pairwise comparison.
+  
+## Pairs plot {.allowframebreaks}
+
+  - A pairs plot arranges these univariate summaries and pairwise comparisons along a matrix.
+  - Each variable corresponds to both a row and a column
+  - Univariate summaries appear on the diagonal, and pairwise comparisons off the diagonal.
+  - Because of symmetry, we often see a different summary of the comparison above and below the diagonal
+  - I will show two packages:
+    1. `GGally`
+    2. `ggforce`
+  
+```{r, message = FALSE}
+library(GGally)
+
+olive %>% 
+  dplyr::select(-region, -area) %>% 
+  ggpairs
+```
+
+```{r, cache = TRUE}
+library(ggforce)
+
+olive %>% 
+  dplyr::select(-region, -area) %>% 
+  ggplot(aes(x = .panel_x, y = .panel_y)) + 
+  geom_point() + 
+  facet_matrix(vars(everything()))
+
+olive %>% 
+  dplyr::select(-region, -area) %>% 
+  ggplot(aes(x = .panel_x, y = .panel_y)) + 
+  geom_point() + 
+  geom_autodensity() +
+  facet_matrix(vars(everything()),
+               layer.diag = 2)
+
+olive %>% 
+  dplyr::select(-region, -area) %>% 
+  ggplot(aes(x = .panel_x, y = .panel_y)) + 
+  geom_point() + 
+  geom_autodensity() +
+  geom_density2d() +
+  facet_matrix(vars(everything()), 
+               layer.diag = 2, 
+               layer.upper = 3)
+```
+

@@ -1,0 +1,10 @@
+baseURL = "https://maxturgeon.ca/f20-stat3150/"
+languageCode = "en-ca"
+title = "STAT 3150 - Fall 2020"
+theme = "book"
+ignoreFiles = ["_files$", "_cache$"]
+
+[params]
+BookMenuBundle = "/menu"
+BookToC = false
+BookSearch = false

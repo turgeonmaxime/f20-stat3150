@@ -1,0 +1,61 @@
+\documentclass[11pt]{beamer}
+\usetheme{metropolis}
+
+% \usepackage{etex} % helps fix \newdimen error which is cause when ctable is loaded with other packages
+% \usepackage{comment}
+% \usepackage{ctable}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage[]{hyperref}
+
+% some convenient commands
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\high}[1]{\textcolor{highlight}{#1}}
+\newcommand{\low}[1]{\textcolor{lowlight}{#1}}
+\newcommand{\highcode}[1]{\textcolor{highlight}{\texttt{#1}}}
+
+\begin{document}
+
+<<setup, echo=FALSE,warning=FALSE,message=FALSE,cache=FALSE, results='hide'>>=
+#options(width=60, digits=2)
+set.seed(45)
+
+opts_chunk$set(echo = TRUE, 
+               tidy = FALSE, 
+               cache = FALSE, 
+               warning = FALSE, 
+               message = FALSE)
+knit_hooks$set(crop = hook_pdfcrop)
+opts_template$set(
+    fig.large = list(fig.width = 7, fig.height = 5, fig.align = 'center', crop = TRUE, fig.pos = 'h'),
+    fig.small = list(fig.width = 6, fig.height = 4, fig.align = 'center', crop = TRUE, fig.pos = 'h'),
+    fig.full = list(fig.width = 8, fig.height = 6, fig.align = 'center', crop = TRUE, fig.pos = 'h')
+)
+# smaller font size for chunks
+#opts_chunk$set(size = 'tiny')
+thm <- knit_theme$get("bclear")
+knit_theme$set(thm)
+options(width = 78, digits = 2)
+knit_hooks$set(rcode = function(before, options, envir) {
+  if (before) sprintf('\\begin{rcode}\\label{%s}', options$label) else '\\end{rcode}'
+})
+
+knit_hooks$set(frame = function(before, options, envir) {
+  if (before) sprintf('\\begin{frame}[fragile]\\hfill{}', options$label) else '\\end{frame}'
+})
+knitr::read_chunk("slides-packages.R")
+@
+
+\title{{{ replace .Name "-" " " | title }}}
+\institute{STAT 4690--Applied Multivariate Analysis}
+\author{Max Turgeon}
+\date{}
+
+%\makebeamertitle
+
+\maketitle
+
+\begin{frame}{First Slide}
+Hello World!
+\end{frame}
+
+\end{document}
