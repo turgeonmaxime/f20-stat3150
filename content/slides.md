@@ -5,6 +5,9 @@ type: docs
 
 # Slides
 
+Slides for the course will be posted here.
+
+<!--
   - [Course Overview](overview.pdf)
   - [Data Visualization](visualization.pdf)
     + [R code](visualization.R)
@@ -40,3 +43,4 @@ type: docs
   - [Manifold Learning](manifold-learning.pdf)
     + [R code](manifold-learning.R)
   - PageRank Algorithm
+-->
