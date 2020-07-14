@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>STAT 3150 - Fall 2020</title>
+    <link>https://maxturgeon.ca/f20-stat3150/</link>
+    <description>Recent content on STAT 3150 - Fall 2020</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-ca</language>
+    
+	<atom:link href="https://maxturgeon.ca/f20-stat3150/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Practice Problems</title>
+      <link>https://maxturgeon.ca/f20-stat3150/practice/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://maxturgeon.ca/f20-stat3150/practice/</guid>
+      <description>Here is a list of practice problems. The problem numbers refer to the 6thedition of Applied Multivariate Statistical Analysis by Johnson &amp;amp; Wichern. A copy has been put on course reserve through the Science Library.
+Chapter 3&amp;ndash;Sample Geometry and Random Sampling #  3.8, 3.9, 3.10, 3.14, 3.15, 3.17
+Chapter 4&amp;ndash;The Multivariate Normal Distribution #  4.3, 4.4, 4.4, 4.5, 4.6, 4.7, 4.8, 4.16, 4.18, 4.19, 4.21, 4.22
+Chapter 5&amp;ndash;Inferences about a Mean Vector #  5.</description>
+    </item>
+    
+    <item>
+      <title>Slides</title>
+      <link>https://maxturgeon.ca/f20-stat3150/slides/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://maxturgeon.ca/f20-stat3150/slides/</guid>
+      <description>Slides #  Slides for the course will be posted here.</description>
+    </item>
+    
+    <item>
+      <title>Supplementary Material</title>
+      <link>https://maxturgeon.ca/f20-stat3150/suppl/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://maxturgeon.ca/f20-stat3150/suppl/</guid>
+      <description>Supplementary Material #  On this page, I will post additional resources and supplementary material for the course.
+Resources for R #  In this course, we will use R as the main computational tool. Below are some resources:
+ R for Data Science by Grolemund and Wickham. Hands-On Programming with R by Grolemund. Jenny Bryan&amp;rsquo;s course on Data wrangling, exploration, and analysis with R  In particular, I recommend the notes on The Many Flavours of R objects   Mine Cetinkaya&amp;rsquo;s curated list of resources for R If you&amp;rsquo;re looking for a deep understanding of R, I recommend Hadley Wickham&amp;rsquo;s book Advanced R RStudio has several great cheatsheets on their website.</description>
+    </item>
+    
+  </channel>
+</rss>
