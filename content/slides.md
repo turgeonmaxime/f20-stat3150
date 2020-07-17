@@ -5,7 +5,7 @@ type: docs
 
 # Slides
 
-Slides for the course will be posted here.
+Slides for the course will be posted here once the course is over. If you are registered for the course, you can find the material on [UM Learn](https://universityofmanitoba.desire2learn.com/d2l/login).
 
 <!--
   - [Course Overview](overview.pdf)

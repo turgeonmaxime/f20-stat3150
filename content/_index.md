@@ -26,17 +26,17 @@ This is the course website for **STAT 3150: Statistical Computing**. This course
     
 <!--The course outline can be downloaded [here](outline_stat4690_f19.pdf).-->
 
-## Prerequisites
+### Prerequisites
 
 STAT 2150 (Statistics and Computing) and STAT 2400 (Introduction to Probability 1)
 
-## Textbook
+### Textbook
 
 *Statistical Computing with R* (2<sup>nd</sup> ed.) by Maria L. Rizzo, CRC Press, 2019.
 
 The textbook is not required but strongly recommended.
 
-## Assessments
+### Assessments
 
 The assessments for this course include:
 
@@ -44,14 +44,14 @@ The assessments for this course include:
   - Two (2) midterm tests.
   - One (1) final exam.
 
-# Outline of Topics
+## Outline of Topics
 
 The course is expected to cover the following topics:
 
   - Data Visualization (Chapter 5)
   - Generating Random Variables (Chapter 3)
   - Monte Carlo Integration (Chapter 6)
-  - Important Sampling (Chapter 6)
+  - Importance Sampling (Chapter 6)
   - Monte Carlo Methods for Inference (Chapter 7)
   - Bootstrap and Jackknife (Chapter 8)
   - Resampling Applications (Chapter 9)
@@ -59,7 +59,7 @@ The course is expected to cover the following topics:
   - Numerical Methods (Chapter 13)
   - Introduction to Optimisation (Chapter 14)
 
-# Statistical Software
+## Statistical Software
 
 The course requires you to make extensive use of the R statistical software for your assignments and final data project. Sample codes will be provided to students. 
 
