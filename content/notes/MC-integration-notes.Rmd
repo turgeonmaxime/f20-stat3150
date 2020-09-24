@@ -1,0 +1,65 @@
+---
+title: "Monte Carlo Integration---Theory"
+author: "Max Turgeon"
+date: "18/09/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Antithetic variables
+
+As discussed in class, the usefulness of antithetic variables is predicated on the idea that monotone functions preserve the negative correlation of variables. Let's prove this.
+
+### Theorem
+
+Let $f,g$ be increasing functions and $X$ a random variable. Assuming all expectations exist, we have
+$$ E(f(X)g(X)) \geq E(f(X)) E(g(X)).$$
+
+### Proof 
+
+Let $x,y\in\mathbb{R}$. Since $f,g$ are increasing, both $f(x) - f(y)$ and $g(x) - g(y)$ have the same sign (positive or negative), and therefore
+$$\left(f(x) - f(y)\right)\left(g(x) - g(y)\right) \geq 0.$$
+
+From this, we immediately get that
+$$E\left[\left(f(X) - f(Y)\right)\left(g(X) - g(Y)\right)\right] \geq 0,$$
+where $Y$ is independent of $X$ and follows the same distribution.
+
+We can expand the product and use the linearity of the expectation to get:
+$$E\left[f(X)g(X)\right] + E\left[f(Y)g(Y)\right] \geq E\left[f(X)g(Y)\right] + E\left[f(Y)g(X)\right].$$
+
+Since $X,Y$ have the same distribution, we have
+$$E\left[f(X)g(X)\right] + E\left[f(Y)g(Y)\right] = 2E\left[f(X)g(X)\right].$$
+
+And since $X,Y$ are independent, we have
+\begin{align*}
+E\left[f(X)g(Y)\right] + E\left[f(Y)g(X)\right] &= E\left[f(X)\right]E\left[g(Y)\right] + E\left[f(Y)\right]E\left[g(X)\right]\\
+    &= E\left[f(X)\right]E\left[g(X)\right] + E\left[f(X)\right]E\left[g(X)\right]\\
+    &= 2E\left[f(X)\right]E\left[g(X)\right].
+\end{align*}
+
+Putting all this together, we get
+$$ E(f(X)g(X)) \geq E(f(X)) E(g(X)),$$
+which is what we wanted to show.\hfill$\square$
+
+### Corrolary
+
+If $f$ is monotone and $U\sim U(0,1)$, then $f(U)$ and $f(1 - U)$ are negatively correlated.
+
+## Proof
+
+Assume $f$ is increasing. Then $g(x) = -f(1 - x)$ is also increasing. Using the Theorem above, we have
+\begin{align*} 
+E(f(U)g(U)) \geq E(f(U)) E(g(U)) &\Rightarrow E(-f(U)f(1 - U)) \geq -E(f(U)) E(-f(1 - U))\\
+    &\Rightarrow E(f(U)f(1 - U)) \leq E(f(U)) E(f(1 - U)).
+\end{align*}
+
+Therefore, we have
+\begin{align*}
+\mathrm{Cov}(f(U), f(1 - U)) &= E(f(U)f(1 - U)) - E(f(U)) E(f(1 - U))\\
+    &\leq 0.
+\end{align*}
+
+Finally, if $f$ is decreasing, repeat the comptutations above by replacing $f$ with $-f$. \hfill$\square$
