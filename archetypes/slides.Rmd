@@ -32,7 +32,7 @@ knitr::opts_chunk$set(cache = FALSE, message = FALSE,
                       linewidth = 50)
 ```
 
-## First Frame
+## Lecture Objectives
 
-Hello, world!
+## Motivation
 

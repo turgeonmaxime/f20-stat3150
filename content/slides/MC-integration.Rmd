@@ -54,7 +54,7 @@ set.seed(3150)
   - Imagine we want to estimate the following definite integral:
   $$\int_0^1 e^{-x} dx.$$
   - From Calculus, we know that $G(x) = -e^{-x}$ is an anti-derivative for $g(x) = e^{-x}$, and so we can quickly check that the integral is equal to $1 - e^{-1}\approx 0.6321$.
-  - Let's generate uniform variates on $(0,1)$ and take the average of their image by $f$:
+  - Let's generate uniform variates on $(0,1)$ and take the average of their image by $g$:
   
 ```{r}
 n <- 1000
@@ -93,7 +93,7 @@ $$\int_a^b g(x) dx,$$
 follow this algorithm:
 
   1. Generate $X_1, \ldots, X_n$ independently from a uniform distribution on $(a,b)$.
-  2. Compute the sample mean $\overline{g(X)} = \frac{1}{n}g(X_i)$.
+  2. Compute the sample mean $\overline{g(X)} = \frac{1}{n}\sum_{i=1}^ng(X_i)$.
   3. Estimate the integral via $(b-a)\overline{g(X)}$.
   
 ## Slightly more complex example {.allowframebreaks}
@@ -173,8 +173,7 @@ plot(theta_hat,
  - Using our computations above, we can also put a confidence band around the trace plot.
  
 ```{r}
-# There's no dplyr::cumsd...
-sigma2_hat <- cummean((exp(-unif_vars) - theta_hat)^2)
+sigma2_hat <- cumstats::cumvar(exp(-unif_vars))
 sigma_hat <- sqrt(sigma2_hat)
 
 plot(theta_hat, type = "l")
