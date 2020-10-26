@@ -33,11 +33,9 @@ knitr::opts_chunk$set(cache = FALSE, message = FALSE,
 set.seed(3150)
 ```
 
-## Lecture Objectives
+## Lecture Objective
 
-  - Understand how the empirical CDF is related to resampling techniques.
-  - Use jackknife to estimate the bias and variance of an estimator.
-  - Learn the basics of bootstrap and how  it can be used to compute confidence intervals.
+  - Use jackknife to estimate the bias and standard error of an estimator.
 
 ## Motivation {.allowframebreaks}
 
