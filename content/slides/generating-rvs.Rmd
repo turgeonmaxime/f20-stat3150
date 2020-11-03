@@ -1,6 +1,6 @@
 ---
 title: "Generating Random Variates"
-draft: true
+draft: false
 source: true
 output: binb::metropolis
 fontsize: 12pt

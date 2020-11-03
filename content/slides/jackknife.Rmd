@@ -1,6 +1,6 @@
 ---
 title: "Jackknife"
-draft: true
+draft: false
 source: true
 output: binb::metropolis
 fontsize: 12pt

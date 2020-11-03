@@ -1,6 +1,6 @@
 ---
 title: "Resampling Applications"
-draft: true
+draft: false
 source: true
 output: binb::metropolis
 fontsize: 12pt
