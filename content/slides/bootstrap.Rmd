@@ -92,12 +92,12 @@ sample(n, n, replace = TRUE)
 
 ```{r}
 # Bootstrap estimate of SE
-boot_rho <- replicate(5000, {
+boot_theta <- replicate(5000, {
   # Sample with replacement
   indices <- sample(n, n, replace = TRUE)
   median(one_sample[indices])
 })
-sd(boot_rho)
+sd(boot_theta)
 ```
 
 ```{r}
@@ -123,6 +123,7 @@ library(bootstrap)
 
 ```{r}
 # Bootstrap estimate of SE
+n <- nrow(law)
 boot_rho <- replicate(5000, {
   # Sample with replacement
   indices <- sample(n, n, replace = TRUE)
@@ -130,6 +131,10 @@ boot_rho <- replicate(5000, {
   # to keep correlation structure
   cor(law$LSAT[indices], law$GPA[indices])
 })
+```
+
+
+```{r}
 sd(boot_rho)
 ```
 
@@ -217,6 +222,8 @@ rho_hat - bias
   - This is also known as the **pivotal bootstrap CI**.
   - It is very similar to the bootstrap percentile approach, but instead of taking the sample quantiles of $\hat{\theta}^{(b)}$, $b = 1,\ldots, B$, we take the sample quantiles of the *pivot quantities* $\hat{\theta}^{(b)} - \hat{\theta}$, $b = 1,\ldots, B$.
   - Note that the $\beta$-th quantile of $\hat{\theta}^{(b)} - \hat{\theta}$ is equal to $\hat{\theta}_\beta - \hat{\theta}$, where $\hat{\theta}_\beta$ is the $\beta$-th quantile of $\hat{\theta}^{(b)}$.
+  - To build the basic bootstrap CI, we take $\hat{\theta}$ minus some critical values. But instead of using the critical values of the standard normal, we take our critical values from the *pivot quantities*:
+  $$\hat{\theta} - (\hat{\theta}_\beta - \hat{\theta}) = 2\hat{\theta} - \hat{\theta}_\beta.$$
   - Therefore, the **basic bootstrap** $100(1 - \alpha)$% confidence interval for $\theta$ is
   $$(2\hat{\theta} - \hat{\theta}_{1- \alpha/2}, 2\hat{\theta} - \hat{\theta}_{\alpha/2}).$$
   - **Why use basic over percentile?** It turns out the basic bootstrap CI has better theoretical properties and stronger convergence guarantees.
@@ -225,8 +232,8 @@ rho_hat - bias
 
   - This confidence interval accounts for the fact we have to estimate the standard error.
   - However, it is much more involved: we can construct an approximate $100(1 - \alpha)$% confidence interval for $\theta$ via
-  $$(\hat{\theta} - t^*_{1 - \alpha/2} SE(\hat{\theta}), \hat{\theta} - t^*_{\alpha/2} SE(\hat{\theta}),$$
-  where $t^*_{1 - \alpha/2}$ and $t^*_{\alpha/2}$ are computed using a **double bootstrap**.
+  $$\left(\hat{\theta} - t^*_{1 - \alpha/2} SE(\hat{\theta}), \hat{\theta} - t^*_{\alpha/2} SE(\hat{\theta})\right),$$
+  where $t^*_{1 - \alpha/2}$ and $t^*_{\alpha/2}$ are computed using a **double bootstrap**, and where $SE(\hat{\theta})$ is the usual bootstrap estimate of the standard error.
   
 ### Algorithm
 
@@ -266,11 +273,12 @@ quantile(boot_rho,
 ```
 
 ```{r}
-# 2. Basic bootstrap
+# 3. Basic bootstrap
 crit_vals <- quantile(boot_rho,
                       probs = c(0.025, 0.975))
 c(2*rho_hat - crit_vals[2],
-  2*rho_hat - crit_vals[1])
+  2*rho_hat - crit_vals[1],
+  use.names = FALSE)
 ```
 
 ```{r, echo = FALSE}
@@ -328,8 +336,19 @@ tcrit_vals <- quantile(boot_rho_t[2,],
 
 ```{r}
 c(rho_hat - tcrit_vals[2]*SE,
-  rho_hat - tcrit_vals[1]*SE)
+  rho_hat - tcrit_vals[1]*SE,
+  use.names = FALSE)
 ```
 
   - This is a valid confidence interval, but it is much wider than the other three!
   - Given the skewness of the bootstrap samples, the percentile approach is the most appropriate.
+  
+## Final remarks
+
+  - So when should we use jackknife vs bootstrap?
+  - In some way, the jackknife is an *approximation* of the bootstrap, and as a consequence, the bootstrap almost always outperforms the jackknife.
+  - However, for small sample sizes, the jackknife will be more computationally efficient:
+    + Jackknife requires $n+1$ computations of the estimate.
+    + Bootstrap requires $B+1$ computations of the estimate, where $B$ is usually at least 1000.
+  - Bootstrap performs better when the sampling distribution is skewed.
+  - Jackknife does **not** work with some estimators, e.g. sample median and sample quantiles.
