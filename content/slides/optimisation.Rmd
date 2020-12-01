@@ -1,6 +1,6 @@
 ---
 title: "Optimisation"
-draft: true
+draft: false
 source: true
 output: binb::metropolis
 fontsize: 12pt
@@ -179,7 +179,7 @@ abline(v = x_next, lty = 2)
 ## Exercise
 
 Find the minimum for the function 
-$$f(x) = 5x + 5x^2 + 5\log(1 + e^{−x}).$$
+$$f(x) = 5x + 5x^2 + 5\log(1 + e^{-x}).$$
 
 ## Solution {.allowframebreaks}
 
@@ -287,7 +287,7 @@ hessian <- function(theta) {
 
 ```{r}
 # Set-up variables
-x_current <- c(1, 1)
+x_current <- c(0, 1)
 x_next <- c(0, 0)
 tol <- 10^-10
 iter <- 0
@@ -312,6 +312,58 @@ x_next
 fit <- glm(satell ~ weight, data = crabs,
            family = poisson)
 coef(fit)
+```
+
+```{r, message = FALSE}
+library(tidyverse)
+log_lik <- function(row) {
+    mu_vec <- exp(row$beta0 + row$beta1*x_vec)
+    sum(dpois(y_vec, lambda = mu_vec, log = TRUE))
+}
+
+data_plot <- expand.grid(beta0 = seq(-2, 0, 0.1),
+                         beta1 = seq(0, 1, 0.1)) %>% 
+  purrrlyr::by_row(log_lik, .collate = "cols", 
+                   .to = "loglik")
+```
+
+
+```{r, message = FALSE}
+head(data_plot)
+```
+
+
+```{r, message = FALSE}
+data_plot %>% 
+  ggplot(aes(x = beta0, y = beta1,
+             z = loglik)) + 
+  geom_contour() + 
+  geom_point(x = coef(fit)[1],
+             y = coef(fit)[2],
+             shape = 4)
+```
+
+```{r echo = FALSE}
+nr_vec <- matrix(NA, nrow = iter + 1, ncol = 2)
+nr_vec[1, ] <- c(0, 1)
+for (i in 1:iter) {
+  step <- solve(hessian(nr_vec[i,]), 
+                gradient(nr_vec[i,]))
+  nr_vec[i+1,] <- nr_vec[i,] - step
+}
+```
+
+```{r, echo = FALSE}
+colnames(nr_vec) <- c("beta0", "beta1")
+data_plot %>% 
+  ggplot(aes(x = beta0, y = beta1)) + 
+  geom_contour(aes(z = loglik)) + 
+  geom_point(x = coef(fit)[1],
+             y = coef(fit)[2],
+             shape = 4) +
+  geom_path(data = data.frame(nr_vec)) +
+  geom_point(data = data.frame(nr_vec),
+             col = "black", size = 0.8)
 ```
 
 ## Some vocabulary
