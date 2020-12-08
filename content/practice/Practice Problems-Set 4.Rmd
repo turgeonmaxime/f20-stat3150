@@ -27,7 +27,7 @@ Show that the following statistics lead to equivalent permutation tests for the 
   b) the difference between the sample means;
   c) the t-statistic. 
 
-In other words, given a set of permutations of the data and signifance level $\alpha$, one of these tests will reject the null hypothesis if and only if all tests reject the null hypothesis.
+In other words, given a set of permutations of the data and significance level $\alpha$, one of these tests will reject the null hypothesis if and only if all tests reject the null hypothesis.
 
 **Hint**: The sum of all the observations, the sum of the squares of all the observations, and the sample sizes are invariant under permutations.
 

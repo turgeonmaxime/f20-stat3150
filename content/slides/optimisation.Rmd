@@ -130,9 +130,10 @@ gradient <- function(x) -2*x + cos(x)
 hessian <- function(x) -2 - sin(x)
 # Set-up parameters
 x_current <- 1
-x_next <- 0
+x_next <- x_current - 
+  gradient(x_current)/hessian(x_current)
 tol <- 10^-10
-iter <- 0
+iter <- 1
 ```
 
 
@@ -140,10 +141,9 @@ iter <- 0
 while (abs(x_current - x_next) > tol &
        iter < 100) {
   iter <- iter + 1
-  step <- gradient(x_current)/hessian(x_current)
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+    x_current <- x_next
+    step <- gradient(x_current)/hessian(x_current)
+    x_next <- x_current - step
 }
 x_next
 ```
@@ -195,9 +195,10 @@ gradient <- function(x) 5 + 10*x - 5/(1+exp(x))
 hessian <- function(x) 10 + 5*exp(x)/(1+exp(x))^2
 
 x_current <- 1
-x_next <- 0
+x_next <- x_current -
+  gradient(x_current)/hessian(x_current)
 tol <- 10^-10
-iter <- 0
+iter <- 1
 ```
 
 
@@ -205,10 +206,9 @@ iter <- 0
 while (abs(x_current - x_next) > tol &
        iter < 100) {
   iter <- iter + 1
-  step <- gradient(x_current)/hessian(x_current)
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+    x_current <- x_next
+    step <- gradient(x_current)/hessian(x_current)
+    x_next <- x_current - step
 }
 x_next
 ```
@@ -220,7 +220,7 @@ x_next
   $$ Y_i \sim Pois(\mu(X_i)), \qquad \log(\mu(X_i)) = \beta_0 + \beta_1 X_i.$$
   - We will use the Newton-Raphson method to find the Maximum Likelihood estimate $\hat{\theta} = (\hat{\beta}_0, \hat{\beta}_1)$.
   - First, let's write down the likelihood:
-  $$L(\theta) = \prod_{i=1}^n\frac{\mu(X_i)^{Y_i}\exp\left(\mu(X_i)\right)}{Y_i!}.$$
+  $$L(\theta) = \prod_{i=1}^n\frac{\mu(X_i)^{Y_i}\exp\left(-\mu(X_i)\right)}{Y_i!}.$$
   - Take the logarithm:
   
 \begin{align*}
@@ -288,20 +288,21 @@ hessian <- function(theta) {
 ```{r}
 # Set-up variables
 x_current <- c(0, 1)
-x_next <- c(0, 0)
+x_next <- x_current - solve(hessian(x_current), 
+                            gradient(x_current))
 tol <- 10^-10
-iter <- 0
+iter <- 1
 ```
 
 
 ```{r}
-while(sum((x_current - x_next)^2) > tol & iter < 100) {
+while(sum((x_current - x_next)^2) > tol & 
+      iter < 100) {
   iter <- iter + 1
+  x_current <- x_next
   step <- solve(hessian(x_current), 
                 gradient(x_current))
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+  x_next <- x_current - step
 }
 x_next
 ```
@@ -373,109 +374,6 @@ data_plot %>%
     + **Exercise**: The expected value of the score function is 0.
   - The Hessian $D^2\ell(\theta\mid\mathbf{x})$ is related to the Fisher information matrix $\mathcal{I}(\theta)$:
   $$\mathcal{I}(\theta) = -E\left(D^2\ell(\theta\mid\mathbf{x})\right).$$
-
-<!-- ## Example 2 {.allowframebreaks} -->
-
-<!--   - Blood types come broadly in 4 types: A, B, AB, and O. -->
-<!--   - Genetically speaking, your blood type is determined by the two alleles you received from your parents. -->
-<!--     + Possible alleles: A, B or O -->
-<!--     + A,B are each dominant over O (e.g. if you received B and O alleles, your blood type is B). -->
-<!--     + A,B are codominant, i.e. if you received A and B alleles, your blood type is AB. -->
-<!--   - Let $p_A,p_B,p_O$ be the frequencies of each allele in the population. -->
-<!--   - Let $n_A,n_B,n_{AB},n_O$ be the number of observed blood types in a certain sample. The multinomial likelihood for $\theta = (p_A,p_B,p_O)$ is -->
-
-<!-- \begin{align*} -->
-<!-- L(\theta) &= {n\choose n_A,n_B,n_{AB},n_O} (p_A^2 + 2p_Ap_O)^{n_A}\cdot(p_B^2 + 2p_Bp_O)^{n_B}\\ -->
-<!--   &\qquad \cdot(2p_Ap_B)^{n_{AB}}\cdot(p_O^2)^{n_O}, -->
-<!-- \end{align*} -->
-<!--   where $n = n_A + n_B + n_{AB} + n_O$. -->
-
-<!-- \vspace{2cm} -->
-
-<!--   - We will make two simplifications before taking any derivative: -->
-<!--     + We don't need the constant ${n\choose n_A,n_B,n_{AB},n_O}$. -->
-<!--     + We will use the identity $p_O = 1 - p_A - p_B$, and substitute $\theta = (p_A, p_B)$. -->
-
-<!-- \begin{align*} -->
-<!-- \ell(\theta) &= n_A\log(p_A^2 + 2p_Ap_O) + n_B\log(p_B^2 + 2p_Bp_O)\\ -->
-<!--   &\quad + n_{AB}\log(2p_Ap_B) + 2n_O\log(p_O).\\ -->
-<!-- \end{align*} -->
-
-<!-- \vspace{1cm} -->
-
-<!--   - The first-order derivatives are -->
-
-<!-- \begin{align*} -->
-<!-- \frac{\partial}{\partial p_A}\ell(\theta) &= \frac{2n_Ap_O}{p_A^2 + 2p_Ap_O} - \frac{2n_B}{p_B + 2p_O} + \frac{n_{AB}}{p_A} - \frac{2n_O}{p_O};\\ -->
-<!-- \frac{\partial}{\partial p_B}\ell(\theta) &= -\frac{2n_A}{p_A + 2p_O} + \frac{2n_Bp_O}{p_B^2 + 2p_Bp_O} + \frac{n_{AB}}{p_B} - \frac{2n_O}{p_O}.\\ -->
-<!-- \end{align*} -->
-
-<!-- \vspace{2cm} -->
-
-<!--   - The second-order derivatives are -->
-
-<!-- \begin{align*} -->
-<!-- \frac{\partial^2}{\partial p_A^2}\ell(\theta) &= -\frac{2n_A(p_A^2 + p_Ap_O + 2p_O^2)}{(p_A^2 + 2p_Ap_O)^2} - \frac{4n_B}{(p_B + 2p_O)^2}\\ -->
-<!--   &\quad - \frac{n_{AB}}{p_A^2} - \frac{2n_O}{p_O^2};\\ -->
-<!-- \frac{\partial^2}{\partial p_B^2}\ell(\theta) &= - \frac{4n_A}{(p_A + 2p_O)^2} -\frac{2n_B(p_B^2 + p_Bp_O + 2p_O^2)}{(p_B^2 + 2p_Bp_O)^2}\\ -->
-<!--   &\quad - \frac{n_{AB}}{p_B^2} - \frac{2n_O}{p_O^2};\\ -->
-<!-- \frac{\partial^2}{\partial p_A\partial p_B}\ell(\theta) &= -\frac{2n_A}{(p_A + 2p_O)^2} -\frac{2n_B}{(p_B + 2p_O)^2} -\frac{2n_O}{p_O^2}. -->
-<!-- \end{align*} -->
-
-<!--   - Now that we have the gradient and Hessian, we can use Newton-Raphson to find the Maximum Likelihood estimate of $\theta = (p_A, p_B)$. -->
-<!--   - Our data is as follows: $n_A = 186, n_B = 38, n_{AB} = 13, n_O = 284$. -->
-
-<!-- ```{r} -->
-<!-- gradient <- function(theta) { -->
-<!--   pA <- theta[1] -->
-<!--   pB <- theta[2] -->
-<!--   pO <- 1 - pA - pB -->
-<!--   ell_A <- 2*nobs[1]*pO/(pA^2 + 2*pA*pO) - -->
-<!--     2*nobs[2]/(pB + 2*pO) + nobs[3]/pA - 2*nobs[4]/pO -->
-<!--   ell_B <- - 2*nobs[1]/(pA + 2*pO) + -->
-<!--     2*nobs[2]*pO/(pB^2 + 2*pB*pO) + nobs[3]/pB -  -->
-<!--     2*nobs[4]/pO -->
-<!--   return(c(ell_A, ell_B)) -->
-<!-- } -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-<!-- hessian <- function(theta) { -->
-<!--   pA <- theta[1] -->
-<!--   pB <- theta[2] -->
-<!--   pO <- 1 - pA - pB -->
-<!--   ell_AA <- -2*nobs[1]*(pA^2 + pA*pO + 2*pO^2)/(pA^2 + 2*pA*pO)^2 - -->
-<!--     4*nobs[2]/(pB+2*pO)^2 - nobs[3]/pA^2 - 2*nobs[4]/pO^2 -->
-<!--   ell_BB <- -2*nobs[2]*(pB^2 + pB*pO + 2*pO^2)/(pB^2+2*pB*pO)^2 - -->
-<!--     4*nobs[1]/(pA+2*pO)^2 - nobs[3]/pB^2 - 2*nobs[4]/pO^2 -->
-<!--   ell_AB <- -2*nobs[1]/(pA^2+2*pO^2)^2 - -->
-<!--     2*nobs[2]/(pB^2+2*pO^2)^2 - 2*nobs[4]/pO^2 -->
-<!--   return(matrix(c(ell_AA, ell_AB, ell_AB, ell_BB), -->
-<!--                 nrow = 2)) -->
-<!-- } -->
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-<!-- nobs <- c(186, 38, 13, 284) -->
-<!-- x_current <- c(0.3, 0.2) -->
-<!-- x_next <- c(0, 0) -->
-<!-- tol <- 10^-10 -->
-<!-- iter <- 0 -->
-<!-- ``` -->
-
-<!-- ```{r eval = FALSE} -->
-<!-- while (sum((x_current - x_next)^2) > tol & -->
-<!--        iter < 100) { -->
-<!--   iter <- iter + 1 -->
-<!--   step <- solve(hessian(x_current), gradient(x_current)) -->
-<!--   update <- x_current - step -->
-<!--   x_current <- x_next -->
-<!--   x_next <- update -->
-<!-- } -->
-<!-- x_next -->
-<!-- ``` -->
 
 ## Final remarks
 
