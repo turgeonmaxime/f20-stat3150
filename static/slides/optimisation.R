@@ -22,19 +22,19 @@ gradient <- function(x) -2*x + cos(x)
 hessian <- function(x) -2 - sin(x)
 # Set-up parameters
 x_current <- 1
-x_next <- 0
+x_next <- x_current - 
+  gradient(x_current)/hessian(x_current)
 tol <- 10^-10
-iter <- 0
+iter <- 1
 
 
 ## -----------------------------------------------------------------------------
 while (abs(x_current - x_next) > tol &
        iter < 100) {
   iter <- iter + 1
-  step <- gradient(x_current)/hessian(x_current)
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+    x_current <- x_next
+    step <- gradient(x_current)/hessian(x_current)
+    x_next <- x_current - step
 }
 x_next
 
@@ -49,19 +49,19 @@ gradient <- function(x) 5 + 10*x - 5/(1+exp(x))
 hessian <- function(x) 10 + 5*exp(x)/(1+exp(x))^2
 
 x_current <- 1
-x_next <- 0
+x_next <- x_current -
+  gradient(x_current)/hessian(x_current)
 tol <- 10^-10
-iter <- 0
+iter <- 1
 
 
 ## -----------------------------------------------------------------------------
 while (abs(x_current - x_next) > tol &
        iter < 100) {
   iter <- iter + 1
-  step <- gradient(x_current)/hessian(x_current)
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+    x_current <- x_next
+    step <- gradient(x_current)/hessian(x_current)
+    x_next <- x_current - step
 }
 x_next
 
@@ -97,19 +97,20 @@ hessian <- function(theta) {
 ## -----------------------------------------------------------------------------
 # Set-up variables
 x_current <- c(0, 1)
-x_next <- c(0, 0)
+x_next <- x_current - solve(hessian(x_current), 
+                            gradient(x_current))
 tol <- 10^-10
-iter <- 0
+iter <- 1
 
 
 ## -----------------------------------------------------------------------------
-while(sum((x_current - x_next)^2) > tol & iter < 100) {
+while(sum((x_current - x_next)^2) > tol & 
+      iter < 100) {
   iter <- iter + 1
+  x_current <- x_next
   step <- solve(hessian(x_current), 
                 gradient(x_current))
-  update <- x_current - step
-  x_current <- x_next
-  x_next <- update
+  x_next <- x_current - step
 }
 x_next
 
