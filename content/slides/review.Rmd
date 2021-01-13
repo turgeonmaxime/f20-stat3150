@@ -1,0 +1,169 @@
+---
+title: "Review"
+draft: true
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(cache = FALSE, message = FALSE,
+                      linewidth = 50)
+```
+
+## Main theme
+
+  - Recall the main theme of the course: **using computational techniques to solve statistical problems**.
+  - What kind of statistical problems?
+    + Point estimation
+    + Interval estimation
+    + Hypothesis testing
+  
+## Data visualization
+  
+  - The first module was on data visualization.
+    + How to create some basic graphs in `R`, using either `base R` or `ggplot`.
+    + Principles of effective data visualization.
+  - The first module served as a warm-up. It wasn't directly related to the following modules, but we did use plots throughout the course.
+  
+## Generating random variates
+
+  - `R` has many built-in functions for generating random variates.
+    + `runif`, `rnorm`, etc.
+  - We discussed general techniques when these functions aren't enough.
+    + Inverse transform, or generally any type of transformation.
+    + Accept-reject sampling.
+  - **When would you need to generate random variates?**
+    + Estimate expected values (i.e. Monte Carlo integration)
+    + Estimate probability statements (e.g. parallel parking example)
+    + Simulation studies
+  
+## Monte Carlo integration {.allowframebreaks}
+
+  - This topic mostly falls under *point estimation*.
+  - Estimate quantities of the form
+  $$ E(g(X)) = \int g(x) f(x) dx, \qquad X \sim f.$$
+  - Trace plot = diagnose convergence issues
+  - Variance reduction
+    + Antithetic variables
+    + Control variates
+    + Importance sampling
+    + Stratified MC integration
+  - Confidence intervals in MC integration are based on the Central Limit Theorem
+    + Since our estimates are sample means, we need to divide by $\sqrt{n}$, where $n$ is the number of variates in the sample mean.
+  - **When would you use MC integration?**
+    + To estimate difficult integrals.
+    + Many, many estimators can be defined as expected values of transformations $g(X)$ of a random variable $X$.
+    
+## Importance sampling
+
+  - It's a form of **variance reduction** for Monte Carlo integration.
+  - Based on the following identity:
+  $$E_f(g(X)) = E_\phi\left(\frac{g(X)f(X)}{\phi(X)}\right),$$
+  as long as $\phi$ is nonzero on the support of $f$.
+  - We want to choose the importance function $\phi$ such that:
+    + $\phi$ is a density from which it is "easy" to sample.
+    + the ratio $\frac{\lvert g(X)\rvert f(X)}{\phi(X)}$ is almost constant.
+  - **Why do we care so much about reducing variance anyway?**
+    + Because smaller variance means smaller confidence intervals, which means more accurate inference.
+    
+## Monte Carlo methods for Inference
+
+  - This module was an interlude, connecting Monte Carlo integration and resampling methods. 
+    + What is a statistic? An estimator? A sampling distribution?
+    + What is a type I error? Type II error? Power?
+  - If we are willing to completely specify the data generating mechanism, we can study the consequences of these assumptions through **Monte Carlo simulation**.
+    + Which estimator is more efficient (i.e. has smallest variance)?
+    + Does my confidence interval have the right coverage probability?
+    + Which hypothesis test has largest power?
+    
+## Resampling methods
+
+  - The next few modules were on resampling methods:
+    + *Jackknife*: "Resample" all subsets of size $n-1$.
+    + *Bootstrap*: Resample $n$ observations **with replacement**.
+    + *Permutation tests*: Permute all observations to mimic resampling under the null hypothesis
+  - It's during these modules that we finally started analysing data.
+
+## Jackknife
+
+  - Mainly presented for its historical importance.
+    + It can be formalized as a "linear approximation" to the bootstrap.
+    + It also helps motivate some quantities/techniques, e.g. student residuals, Cook's distance, leave-one-out cross-validation.
+  - We used it for estimating the **standard error** and **bias** of an estimate.
+    + Use the formulas provided.
+    + But it doesn't always work! E.g. median, quantiles.
+  - We can construct confidence intervals using the CLT.
+    + No general accuracy guarantees.
+
+## Bootstrap {.allowframebreaks}
+
+  - Bootstrap is almost always preferable to jackknife.
+    + It is valid under more general assumptions.
+    + Can be used to construct valid confidence intervals.
+  - Recall the general idea: we are trying to mimic going back and collecting more samples.
+    + **What should we bootstrap?** The quantities we sampled in the first place.
+    + In practice, we need to resample rows of `data.frame`s, so that we *preserve* the correlation structure between the different measurements.
+  - We discussed 5 types of confidence intervals for bootstrap.
+  - **Remember**: no need to divide by $\sqrt{n}$ with bootstrap.
+  - **Very important**: Throughout, we assumed simple random sampling.
+    + In particular, we assumed the observations were independent.
+    + Can be generalized with care.
+  - We spent considerable time talking about bootstrap and linear regression.
+    + *Resample residuals*: Need to assume linearity, additivity, equal variance AND independence of the errors.
+    + *Resample cases/rows*: Only need to assume independence.
+    
+\vspace{1cm}
+    
+  - **If the only thing you remember from STAT 3150 after the holidays is how to *properly* use bootstrap, I'll be happy.**
+    + But it won't be enough to pass the final exam!
+
+## Permutation tests
+
+  - Jackknife and bootstrap are mainly used for point/interval estimation.
+    + Of course, any confidence interval leads to a hypothesis test.
+  - Permutation tests are specifically for hypothesis testing.
+  - They are a family of **non-parametric** methods for testing
+  $$H_0: F = G.$$
+  - In other words: two-sample tests of equal distribution.
+  - **Main idea**: if the data all come from the same distribution, then which ones are Xs and which ones are Ys is irrelevant.
+
+## Numerical methods and Optimisation
+
+  - For the last two modules, we specifically looked at point estimation.
+  - We talked about the following methods:
+    + Bisection/Brent's method for root finding in one dimension.
+    + Trapezoidal rule/Gaussian quadrature for numerical integration.
+    + Newton-Raphson for optimisation in any dimension.
+  - As you've seen in Assignment 6, these methods can be combined with resampling methods to perform interval estimation and hypothesis testing.
+
+## Final words
+
+  - Statistical computing is deeply connected to modern statistics.
+    + You **cannot** do statistics in the 21st century without computing.
+  - Some areas of statistics are more computational than others:
+    + Statistical learning
+    + Bayesian statistics
+    + High-dimensional data
+    
