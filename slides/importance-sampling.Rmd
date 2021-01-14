@@ -1,0 +1,394 @@
+---
+title: "Importance Sampling"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(cache = FALSE, message = FALSE,
+                      linewidth = 50)
+set.seed(3150)
+```
+
+## Lecture Objectives
+
+  - Estimate integrals using importance sampling.
+  - Learn strategies for choosing an appropriate importance function.
+  - Understand how importance sampling is a form of variance reduction.
+
+## Motivation
+
+  - In the last module, we talked about Monte Carlo integration, and how we could estimate integrals by rewriting them as an expectation.
+    + It gave us a powerful method where we sample from a distribution $X$ and transform through a function $g$ to estimate $E(g(X))$.
+  - **Importance sampling** is a different way to tackle the same problem, by re-weighting samples from one distribution so that it matches a different distribution.
+    + *Why?* Because it gives us another way to reduce the variance of our estimate.
+    
+## Importance sampling {.allowframebreaks}
+
+  - The setup is the same as earlier: suppose we want to estimate an integral of the form
+  $$\theta = \int_A g(x) f(x)dx,$$
+  where $f(x)$ is a density supported on $A$.
+  - If we have a function $\phi(x)$ that is positive on $A$, i.e. $\phi(x) > 0$ for all $x\in A$, we can also write
+  $$\theta = \int_A g(x) \frac{f(x)}{\phi(x)} \phi(x) dx.$$
+  - **Why?** If $\phi$ is a density, we have just found a relationship between two expectations:
+  $$E_f(g(X)) = E_\phi\left(\frac{g(X)f(X)}{\phi(X)}\right).$$
+  - The goal would then be to choose a density $\phi$ such that:
+    + It is (relatively) easy to sample from $\phi$.
+    + We can minimize the variance of $Y = \frac{g(X)f(X)}{\phi(X)}$.
+    
+## Example {.allowframebreaks}
+
+  - We will look at the following integral:
+  $$\int_{0}^1 \frac{e^{-x}}{1 + x^2}dx.$$
+  - One way to write this integral as an expectation is by using a uniform on $(0,1)$:
+  $$\int_{0}^1 \frac{e^{-x}}{1 + x^2}dx = E\left(\frac{e^{-X}}{1 + X^2}\right), \quad X\sim U(0,1).$$
+  - We will look at $\phi(x) = e^{-x}$, i.e. the exponential density.
+    + But note that the density is supported on a *larger* set than $(0, 1)$.
+
+```{r}
+# Sample size
+n <- 5000
+# Define a function for integrand
+integrand <- function(x) {
+  # We want to multiply by zero if outside the range
+  supp_ind <- as.numeric(x > 0 & x < 1)
+  
+  return(supp_ind*exp(-x)/(1 + x^2))
+}
+```
+
+```{r}
+# Look at the graph of the function
+xvar <- seq(-0.5, 1.5, by = 0.01)
+plot(xvar, integrand(xvar), type = "l")
+```
+
+```{r}
+# 1. Basic MC integration
+unif_vars <- runif(n)
+
+theta1 <- mean(integrand(unif_vars))
+sd1 <- sd(integrand(unif_vars))
+```
+
+```{r}
+# 2. Exponential density
+exp_vars <- rexp(n)
+
+theta2 <- mean(integrand(exp_vars)/dexp(exp_vars))
+sd2 <- sd(integrand(exp_vars)/dexp(exp_vars))
+```
+
+```{r}
+# Compare results
+c(theta1, theta2)
+c(sd1, sd2)/sqrt(n)
+```
+
+  - So the importance sampling algorithm seems to work, but the standard error is about the same as basic Monte Carlo integration. Can we do better?
+  - **Key observation**: because some exponential samples fall outside the interval $(0,1)$, they don't actually contribute to the estimate...
+ 
+```{r}
+# How many are zeros?
+sum(integrand(exp_vars) == 0)
+```
+
+  - Therefore, we should probably restrict the domain of the exponential to $(0,1)$.
+  - **Check**: $\int_0^1 e^{-x}dx = 1 - e^{-1}$.
+  - We will use the following density:
+  $$\phi_2(x) = \frac{e^{-x}}{1 - e^{-1}}.$$
+  - **How can we generate from this density?** Inverse-transform!
+  - First, note that for $x\in (0,1)$:
+  \begin{align*}
+  F(x) &= \int_0^x\frac{e^{-y}}{1 - e^{-1}}dy\\
+    &= \frac{1 - e^{-x}}{1 - e^{-1}}.
+  \end{align*}
+  - We can then get the quantile function through inversion:
+  \begin{align*}
+  p = \frac{1 - e^{-x}}{1 - e^{-1}} &\Leftrightarrow p(1 - e^{-1}) = 1 - e^{-x}\\
+    &\Leftrightarrow e^{-x} = 1 - p(1 - e^{-1})\\
+    &\Leftrightarrow x = -\log\left(1 - p(1 - e^{-1})\right).\\
+  \end{align*}
+  
+```{r}
+# 3. Truncated exponential density
+unif_vars <- runif(n)
+truncexp_vars <- -log(1 - unif_vars*(1 - exp(-1)))
+
+# Evaluate the density at those points
+phi_vars <- exp(-truncexp_vars)/(1 - exp(-1))
+
+theta3 <- mean(integrand(truncexp_vars)/phi_vars)
+sd3 <- sd(integrand(truncexp_vars)/phi_vars)
+```
+
+```{r}
+# Compare results
+c(theta1, theta2, theta3)
+c(sd1, sd2, sd3)/sqrt(n)
+```
+  
+## Variance comparison {.allowframebreaks}
+
+  - In the example above, we looked at three different approaches:
+    + $E\left(\frac{e^{-X}}{1 + X^2}\right)$, where $X\sim U(0,1)$;
+    + Sampling from $Exp(1)$ and throwing away samples that fall outside $(0, 1)$;
+    + Sampling from an $Exp(1)$ truncated to the interval $(0, 1)$.
+  - It's easy to see why the first and third approach were better than the second:
+    + They used all the samples.
+  - But why was the third approach better than the first?
+  
+### Theorem
+
+The best density $\phi$, i.e. the one that minimizes variance, is given by
+$$\phi^*(x) = \frac{\lvert g(x) \rvert f(x)}{\int_A \lvert g(t) \rvert f(t) dt}.$$
+  
+  - Of course, we typically can't compute the denominator, otherwise we wouldn't need to estimate it!
+  - But the general idea is **we want** $\phi$ **to look like** $\lvert g(x) \rvert f(x)$.
+  - In our example above, $\phi = \frac{e^{-x}}{1 - e^{-1}}$ looks more like $\lvert g(x) \rvert f(x)$ than $\phi(x) = 1$.
+
+## Visualization {.allowframebreaks}
+
+  - We can check by plotting the ratio $\frac{\lvert g(x) \rvert f(x)}{\phi(x)}$.
+    + We want it to be *almost constant*, i.e. close to horizontal.
+
+```{r}
+# Points between 0 and 1 without boundary
+xvar <- ppoints(100)
+plot(xvar, integrand(xvar), type = "l")
+lines(xvar, integrand(xvar)/exp(-xvar), col = "red")
+legend(x = "topright", 
+       legend = c("Uniform", "Trunc. Exp."), 
+       col = c("black", "red"), lty = 1)
+```
+
+## Example {.allowframebreaks}
+
+  - Suppose we want to estimate the tail probability of a standard normal variable $X\sim N(0, 1)$. Specifically, we want to estimate $P(X > 5)$.
+  - We will explore a few different ways of estimating this quantity, trying to find the most efficient estimate.
+  - First, we can use the "hit-or-miss" approach, i.e. sample from a standard normal and count the proportion of samples that are greater than 5.
+  
+```{r}
+n <- 5000
+norm_vars <- rnorm(n)
+# Average of 0s and 1s gives proportion of 1s
+mean(norm_vars > 5)
+```
+
+  - This tail probability is so small that we didn't generate any value greater than 5... let's increase the sample size.
+  
+```{r}
+n <- 10000000
+norm_vars <- rnorm(n)
+# Average of 0s and 1s gives proportion of 1s
+mean(norm_vars > 5)
+```
+
+  - So we had 3 out of 10 million samples! But we can use the symmetry of the standard normal to do slightly better.
+  
+```{r}
+# Check if > 5 in absolute value, and divide by 2
+0.5*mean(abs(norm_vars) > 5)
+# Compare both standard errors
+c(sd(norm_vars > 5), 0.5*sd(abs(norm_vars) > 5))
+```
+
+  - Let's see if we can do better using importance sampling. 
+  - The main problem with our approach above is that most samples don't count towards tail probabilities.
+  - **Solution**: Sample from a distribution where *every* sample will count towards the tail probabilities.
+    + E.g. a shifted exponential, with support $(5, \infty)$.
+  - **Exercise**: the density is given by $\phi(x) = \exp(-x + 5)$
+  
+```{r}
+# Shifted exponential density
+unif_vars <- runif(n)
+shiftexp_vars <- -log(unif_vars) + 5
+
+# Evaluate the density at those points
+phi_vars <- exp(-(shiftexp_vars - 5))
+
+theta_est <- mean(dnorm(shiftexp_vars)/phi_vars)
+sd_est <- sd(dnorm(shiftexp_vars)/phi_vars)
+```
+
+```{r}
+# Compare all three approaches
+c("Method1" = mean(norm_vars > 5), 
+  "Method2" = 0.5*mean(abs(norm_vars) > 5),
+  "Method 3" = theta_est)
+
+c("Method1" = sd(norm_vars > 5), 
+  "Method2" = 0.5*sd(abs(norm_vars) > 5),
+  "Method 3" = sd_est)
+```
+
+  - This corresponds to a variance reduction of `r round(0.5*sd(abs(norm_vars) > 5)/sd_est)` times!
+  - In other words, with Method 3, we can achieve the same precision as Method 2 by using `r round(sqrt(0.5*sd(abs(norm_vars) > 5)/sd_est))` times less samples.
+  
+## Self-Normalized Importance Sampling {.allowframebreaks}
+
+  - Recall our setting: we want to estimate
+  $$\theta = \int_A g(x) \frac{f(x)}{\phi(x)} \phi(x) dx.$$
+  - Write $w(x) = \frac{f(x)}{\phi(x)}$. Then we can rewrite
+  $$\theta = E_\phi\left(w(X)g(X)\right).$$
+  - Now, note that if $X$ follows the distribution $\phi$, then $w(X)$ has expected value 1:
+  \begin{align*}
+  E_\phi\left(w(X)\right) &= \int_A w(x) \phi(x) dx\\
+    &= \int_A \frac{f(x)}{\phi(x)} \phi(x) dx\\
+    &= \int_A f(x) dx\\
+    &= 1.
+  \end{align*}
+  - If $X_1, \ldots, X_n$ are a sample from $\phi$, then by the Law of Large Numbers
+  $$\frac{1}{n}\sum_{i=1}^n w(X_i) \to 1.$$
+  - Therefore, by Slutsky's lemma, we have
+  $$\frac{\frac{1}{n}\sum_{i=1}^n w(X_i)g(X_i)}{\frac{1}{n}\sum_{i=1}^n w(X_i)} \to \theta.$$
+  - **Why do we care?** Suppose we only know the distribution $f$ up to a constant, i.e. we only know $f^* = Kf(x)$. Then we have
+  $$\int_A f^*(x) dx = K,$$
+  and we also have
+  $$\int_A g(x) \frac{f^*(x)}{\phi(x)} \phi(x) dx = K\theta.$$
+  Putting this all together, if we take $w(x) = \frac{f^*(x)}{\phi(x)}$, we have
+  $$\frac{\frac{1}{n}\sum_{i=1}^n w(X_i)g(X_i)}{\frac{1}{n}\sum_{i=1}^n w(X_i)} \to \frac{K\theta}{K} = \theta.$$
+  - In other words, the **self-normalized importance sampling** approach can be used even we only know $f$ up to a constant.
+  
+### Algorithm
+
+To estimate $\theta = \int_A g(x) f(x) dx$:
+
+  1. Sample $X_1, \ldots, X_n$ from a distribution with density $\phi$.
+  2. Compute $w(X_i) = \frac{f(X_i)}{\phi(X_i)}$.
+  2. Use $\hat{\theta} = \frac{\frac{1}{n}\sum_{i=1}^n w(X_i)g(X_i)}{\frac{1}{n}\sum_{i=1}^n w(X_i)}.$
+
+## Application--Bayesian inference {.allowframebreaks}
+
+  - "Bayesian inference is an approach to statistics which incorporates **prior information** into inferences, going beyond the goal of merely summarising existing data." (Gelman, Hill, Vehtari, 2020)
+    + Prior information: what we know/don't know about the parameters, from past experiments (or lack thereof).
+  - In frequentist inference based on **Maximum Likelihood**, we compute the likelihood function and find the value of the parameters that maximizes it.
+  
+\vspace{1cm}
+  
+  - In Bayesian inference, we encode our knowledge of the parameters given the data using a **posterior distribution**.
+    + And we can derive all the information we want from that posterior distribution (e.g. expected value, variance, credible intervals). 
+
+## Example {.allowframebreaks}
+
+  - Consider the following study: we have 294 HIV-infected prison inmates in South Carolina. We recorded that 32 inmates developed tuberculosis, and 262 inmates did not.
+  - We are interested in the probability $\pi$ of developing tuberculosis.
+  - In frequentist inference, we first start with the *likelihood* function $p(X\mid \pi)$:
+    + The likelihood function is the probability of our data given our model.
+  - Our model for the data is the binomial model $Binom(294, \pi)$, and assuming independence between the observations, our likelihood function is
+  $$p(X\mid \pi) = {294\choose 32}\pi^{32}(1-\pi)^{262}.$$
+  - We then find the value of $\pi$ that maximizes the likelihood function.
+  - **Exercise**: the Maximum Likelihood Estimator $\hat{\pi}$ for $\pi$ is given by 
+  $$\hat{\pi} = \frac{32}{294} \approx 0.1088.$$
+  - In Bayesian inference, we also need a *prior distribution* $p(\pi)$ that encodes our current state of knowledge about the parameters.
+  - Using Bayes theorem, we can then derive the *posterior distribution* $p(\pi \mid X)$, which encodes our new state of knowledge about the parameters:
+  \begin{align*}
+  p(\pi \mid X) &= \frac{p(\pi, X)}{p(X)}\\
+    &= \frac{p(\pi)p(X\mid\pi)}{\int p(\pi)p(X\mid\pi) d\pi}
+  \end{align*}
+  - Therefore, **up to a constant**, the posterior distribution is the product of the prior distribution and the likelihood function.
+    + And often, the integral in the denominator is intractable.
+  - **Solution**: Use self-normalized importance sampling!
+  - Going back to our study: let's assume we don't have much prior knowledge about the probability $\pi$.
+  - One way to encode this is by using a uniform prior distribution (i.e. all value of $\pi$ are equally likely).
+    + $p(\pi) = 1.$
+  - Let's plot the product $p(\pi)p(X\mid\pi)$ to see what it looks like for different values of $\pi$.
+  
+```{r}
+pi_seq <- ppoints(100)
+posterior <- 1*choose(294, 32)*pi_seq^32*(1 - pi_seq)^262
+
+plot(pi_seq, posterior, type = "l")
+```
+
+  - As we can see, the posterior is supported on $(0,1)$ with a peak around $\pi = 0.1$.
+  - Recall that the beta distribution $\mathrm{Beta}(\alpha, \beta)$ is supported on $(0, 1)$ with a peak at $\frac{\alpha - 1}{\alpha+\beta+2}$.
+  - This suggests using $\mathrm{Beta}(2, 10)$ for the density $\phi$.
+  
+```{r, eval = FALSE, echo = FALSE}
+# Let's look at the ratio
+plot(pi_seq, posterior/dbeta(pi_seq, 2, 10), 
+     type = "l")
+```
+
+```{r}
+# Create a function for posterior and weight
+post_fun <- function(pi) {
+  1*choose(294, 32)*pi^32*(1 - pi)^262
+}
+
+weight <- function(pi) {
+  post_fun(pi)/dbeta(pi, shape1 = 2, 
+                     shape2 = 10)
+}
+```
+
+```{r}
+# Assume we are interested in posterior mean
+# so g(x) = x
+n <- 5000
+beta_vars <- rbeta(n, shape1 = 2, shape2 = 10)
+
+denominator <- weight(beta_vars)
+numerator <- weight(beta_vars)*beta_vars
+(theta <- mean(numerator)/mean(denominator))
+```
+
+```{r}
+# What about posterior variance?
+denominator <- weight(beta_vars)
+numerator <- weight(beta_vars)*beta_vars^2 # g(x) = x^2
+theta2 <- mean(numerator)/mean(denominator)
+# Var(X) = E(X^2) - E(X)^2
+theta2 - theta^2
+```
+
+```{r}
+# What about posterior probability that pi
+# is between 0.08 and 0.12?
+denominator <- weight(beta_vars)
+# g(x) is indicator function
+gvals <- as.numeric(beta_vars > 0.08 &
+                      beta_vars < 0.12)
+numerator <- weight(beta_vars)*gvals
+mean(numerator)/mean(denominator)
+```
+
+<!-- |           | Yes | No  | Total | -->
+<!-- |-----------|-----|-----|-------| -->
+<!-- | East wing | 28  | 129 | 157   | -->
+<!-- | West wing | 4   | 133 | 137   | -->
+<!-- | Total     | 32  | 262 | 294   | -->
+
+<!--   - Let $p_E,p_W$ be the probability of developing tuberculosis while living in the East wing and West wing, respectively. -->
+<!--   - We are interested in the ratio $\theta = p_E/p_W$, which measures the relative risk of living in each wings. -->
+<!--   - In frequentist statistics, we first start with the *likelihood* function: -->
+<!--     + The likelihood function is the probability of our data given our model. -->
+<!--   - Our model for the data is the binomial models $Binom(157, p_E)$ and $Binom(137, p_W)$.  -->
+<!--   - Assuming the observations are independent, our likelihood function is -->
+<!--   \begin{align*}p(X\mid p_E, p_W) &= \left[{157\choose 28}p_E^{28}(1-p_E)^{129}\right] \times\\ -->
+<!--     &\qquad \left[{137\choose 4}p_W^{4}(1-p_W)^{133}\right]. -->
+<!--   \end{align*} -->

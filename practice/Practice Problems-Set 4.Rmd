@@ -1,0 +1,105 @@
+---
+title: "Practice problems--Set 4"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+In the lecture notes on Permutation tests, I mentioned that bootstrap hypothesis tests tend to be less powerful than permutation tests. Design and conduct a simulation study to compare the power between a bootstrap and permutation test, using a difference of means as the test statistic.
+
+You will need to specify the following quantities:
+
+  - The number of simulations $N$.
+  - The sample sizes $n_X, n_Y$ of both samples.
+  - The distribution $F_X$ of the sample $X_1, \ldots, X_{n_X}$.
+  - The distribution $F_Y$ of the sample $Y_1, \ldots, Y_{n_Y}$.
+  - The difference $\Delta = \mu_X - \mu_Y$ between the population means.
+
+## Problem 2
+
+Show that the following statistics lead to equivalent permutation tests for the equality of two population means: 
+
+  a) the sum of the observations in the smallest sample; 
+  b) the difference between the sample means;
+  c) the t-statistic. 
+
+In other words, given a set of permutations of the data and significance level $\alpha$, one of these tests will reject the null hypothesis if and only if all tests reject the null hypothesis.
+
+**Hint**: The sum of all the observations, the sum of the squares of all the observations, and the sample sizes are invariant under permutations.
+
+## Problem 3
+
+Let $A$ be an invertible matrix of dimension $p\times p$. One way to estimate the inverse of the matrix $A$ is via the following algorithm: Start with an initial value $B_0$, and define the following sequence:
+
+$$ B_{n+1} = 2B_n - B_n A B_n, \quad n\geq 0.$$
+
+Implement this algorithm to find the inverse of the following matrix:
+
+```{r}
+Amat <- matrix(c(1, 0.7, 0.7, 1), ncol = 2)
+Amat
+```
+
+Check your solution using the function `solve`, or by computing the products $AA^{1}$ and $A^{-1}A$.
+
+## Problem 4
+
+Write a function in `R` to compute the CDF of the Cauchy distribution, which has density
+$$f(x) = \frac{1}{\theta \pi\left(1 + \left(\frac{x - \eta}{\theta}\right)^2\right)}, \qquad x\in\mathbb{R}.$$
+Your function should be valid for all $\theta > 0$ and $\eta \in \mathbb{R}$, within numerical limits. Compare your results to the results from the `R` function `pcauchy`.
+
+## Problem 5
+
+Let $Y_1, \ldots, Y_n$ be a sample from a multinomial distribution on 3 objects. In other words:
+$$ P(Y_i = k) = \pi_k, \qquad k = 1, 2, 3.$$
+
+  a. Explain why we can treat this multinomial model as a 2 parameter model.
+  b. Write down the log-likelihood for this data.
+  c. Compute the first-order partial derivatives for the log-likelihood.
+  d. Compute the second-order partial derivatives for the log-likelihood.
+  e. Use the Newton-Raphson algorithm to find the maximum likelihood estimate for the data in `mtcars$cyl`.
+
+## Problem 6
+
+This problem uses ideas from numerical methods, and it lets you practice your `R` coding skills, but it is slightly outside the scope for STAT 3150. So attempt at your own risk.
+
+One approach to finding the leading eigenvector and its corresponding eigenvalue (i.e. the eigenvector corresponding to the largest eigenvalue) is the *power method*:
+
+  - *Input*: A real symmetric matrix $A$ with distinct eigenvalues; a tolerance $\epsilon > 0$; maximum number of iteration $N$.
+  - *Output*: The leading eigenvalue $\lambda$ and a corresponding eigenvector $v$.
+  - Randomly initialized $v_0$.
+  - For $i = 1:N$,
+    + $v_{i} = Av_{i-1}$;
+    + $v_{i} \leftarrow \frac{v_i}{\|v_i\|}$;
+    + If $\|v_{i} - v_{i-1}\| < \epsilon$, `break` out of the loop; otherwise continue.
+   - Set $v = v_K$, where $K$ is the iteration at which we broke out, or $N$.
+   - Set $\lambda = \frac{v^TAv}{v^Tv}$.
+
+Let $A$ be a real positive-definite matrix with eigenvalues $\lambda_1>\ldots>\lambda_p$ and corresponding eigenvectors $v_1,\ldots,v_p$. 
+
+We will use the following positive-definite matrix:
+
+```{r}
+Amat <- matrix(c(1, 0.7, 0.5,
+                 0.7, 1, 0.7,
+                 0.5, 0.7, 1), 
+               ncol = 3)
+Amat
+```
+
+Implement the power method to find the leading eigenvector and eigenvalue of the matrix `Amat`. You can check your work using the function `eigen`, but remember that orthonormal eigenvectors are only unique up to $\pm 1$.
+
+## Problem 7
+
+This problem is a continuation of Problem 6. We explore how the power method can be used to find the other eigenvectors and eigenvalues of `Amat`.
+
+  a. Let $A$ be a general positive-definite matrix of dimension $p$. Show that, for all $j=1,\ldots,p$, $v_j$ is an eigenvector of $A^{-1}$ with eigenvalue $\lambda_j^{-1}$.
+  b. Using the result above, explain how you can adapt the power algorithm to find $\lambda_p$ and $v_p$ (i.e. the smallest eigenvalue and its corresponding eigenvector).
+  c. Let $d\in\mathbb{R}$ be a real number. Give the eigendecomposition of $(A - d I)^{-1}$.
+  d. Using the result above, explain how you can adapt the power algorithm to find the other eigenvalues $\lambda_2 > \ldots > \lambda_{p-1}$ and eigenvectors $v_2 > \ldots > v_{p-1}$ of $A$. (*Hint*: Think about the case $p=3$ first, and extrapolate from there.)
+  e. Using `R`, verify your algorithms from parts b and d on the matrix `Amat`. Validate your answer using the function `eigen`.
+  

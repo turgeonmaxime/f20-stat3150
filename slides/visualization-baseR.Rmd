@@ -1,0 +1,331 @@
+---
+title: "Visualization--Base R"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+## Base `R`
+
+  - Whenever I talk about "base `R`", what I mean is the functions that are part of the basic installation:
+    + E.g. `base`, `stats`, and `graphics`.
+  - Base `R` graphics are very powerful, but they typically require more manual tinkering to create "publication-ready" graphs.
+
+## Main functions for data transformation {.allowframebreaks}
+
+  - `transform`: Create a new variable as a function of the other variables
+```{r eval = FALSE}
+# Switch to litres per 100km
+transform(mtcars, litres_per_100km = mpg/235.215)
+```
+
+\vspace{2in}
+
+  - `subset`: Select rows or columns
+```{r eval = FALSE}
+# Only keep rows where cyl is equal to 6 or 8
+subset(mtcars, subset = cyl %in% c(6, 8))
+# Only keep cyl and mpg columns
+subset(mtcars, select = c(cyl, mpg))
+```
+
+\vspace{1in}
+
+  - `tapply`: Apply function to an array, grouping rows according to another variable.
+    + **Note**: We use the operator `$` to extract the columns as vectors. 
+```{r eval = TRUE, message = FALSE}
+# Average mpg for each value of cyl
+tapply(mtcars$mpg, mtcars$cyl, mean)
+```
+
+# Data Visualization
+
+## Histogram {.allowframebreaks}
+
+```{r, message=FALSE}
+library(dslabs)
+
+# Create histogram for oleic acid
+hist(olive$oleic)
+```
+
+```{r hist_fill, message=FALSE, fig.keep="last"}
+# Look at distribution by region
+# using stacked histograms
+top_hist <- hist(olive$oleic)
+# Gray: North; Red: Sardinia; Blue: South
+hist(olive$oleic[olive$region != "Northern Italy"],
+     breaks = top_hist$breaks,
+     col = "red", add = TRUE)
+hist(olive$oleic[olive$region == "Southern Italy"],
+     breaks = top_hist$breaks,
+     col = "blue", add = TRUE)
+```
+
+
+```{r hist_facet, message=FALSE, eval = TRUE}
+# Split plotting device in three
+par(mfrow = c(1,3))
+hist(olive$oleic[olive$region == "Northern Italy"])
+hist(olive$oleic[olive$region == "Sardinia"])
+hist(olive$oleic[olive$region == "Southern Italy"])
+```
+
+## `with` function {.allowframebreaks}
+
+  - It can quickly become cumbersome to always use the `$` operator to extract variables.
+  - The function `with` can help:
+    + Inside `with`, the columns of a `data.frame` are like variables.
+```{r eval = FALSE}
+# Instead of this:
+hist(olive$oleic)
+# You can write this:
+with(olive, hist(oleic))
+```
+
+```{r hist_facet2, message=FALSE, eval = TRUE}
+# Same as above, but using with
+par(mfrow = c(1,3))
+# 2nd argument of with is an expression 
+# i.e. everything between {}
+with(olive, {
+  hist(oleic[region == "Northern Italy"])
+  hist(oleic[region == "Sardinia"])
+  hist(oleic[region == "Southern Italy"])
+})
+```
+
+```{r, message=FALSE, eval = FALSE}
+# A more complex example
+par(mfrow = c(1,3))
+hist_bg <- hist(olive$oleic, col = 'white', 
+                main = "Northern Italy")
+with(olive, {
+  hist(oleic[region == "Northern Italy"],
+       col = 2, add = TRUE, breaks = hist_bg$breaks)
+  plot(hist_bg, main = "Sardinia")
+  hist(oleic[region == "Sardinia"],
+       col = 3, add = TRUE, breaks = hist_bg$breaks)
+  plot(hist_bg, main = "Southern Italy")
+  hist(oleic[region == "Southern Italy"],
+       col = 4, add = TRUE, breaks = hist_bg$breaks)
+})
+```
+
+---
+
+```{r hist_complex, message=FALSE, eval = TRUE, echo = FALSE}
+# A more complex example
+par(mfrow = c(1,3))
+hist_bg <- hist(olive$oleic, col = 'white', 
+                main = "Northern Italy")
+with(olive, {
+  hist(oleic[region == "Northern Italy"],
+       col = 2, add = TRUE, breaks = hist_bg$breaks)
+  plot(hist_bg, main = "Sardinia")
+  hist(oleic[region == "Sardinia"],
+       col = 3, add = TRUE, breaks = hist_bg$breaks)
+  plot(hist_bg, main = "Southern Italy")
+  hist(oleic[region == "Southern Italy"],
+       col = 4, add = TRUE, breaks = hist_bg$breaks)
+})
+```
+
+## Density plot {.allowframebreaks}
+
+```{r, message=FALSE}
+plot(density(olive$oleic))
+
+# By region--first try
+with(olive, {
+  plot(density(oleic[region == "Northern Italy"]))
+  lines(density(oleic[region == "Sardinia"]))
+  lines(density(oleic[region == "Southern Italy"]))
+})
+```
+
+```{r, message=FALSE}
+# By region--second try
+dens_ni <- with(olive, 
+           density(oleic[region == "Northern Italy"]))
+dens_sa <- with(olive, 
+           density(oleic[region == "Sardinia"]))
+dens_si <- with(olive, 
+           density(oleic[region == "Southern Italy"]))
+
+str(dens_ni)
+```
+
+```{r}
+xlim <- range(c(dens_ni$x, dens_sa$x, dens_si$x))
+ylim <- range(c(dens_ni$y, dens_sa$y, dens_si$y))
+
+plot(dens_ni, xlim = xlim, ylim = ylim, col = 2)
+lines(dens_sa, lty = 2, col = 3)
+lines(dens_si, lty = 3, col = 4)
+```
+
+## Density plot--Comments
+
+  - We used `plot` to get the first density plot, then we use `lines` to **add** the other density plots.
+    + If we used `plot` again, it would create a new graph.
+    + Also, the first call to plot determines the limits of the axes.
+  - By looking at the structure of `dens_ni`, we could see that it stored the `x` and `y` values of the density estimate.
+    + Therefore, we were able combine all three estimates and make sure the first plot was large enough.
+  - In base `R`, we control colour with `col` (using numbers or character strings). We control the line type with `lty`.
+  
+## ECDF plot {.allowframebreaks}
+
+```{r, message=FALSE}
+plot(ecdf(olive$oleic))
+
+# By region--first try
+with(olive, {
+  plot(ecdf(oleic[region == "Northern Italy"]))
+  lines(ecdf(oleic[region == "Sardinia"]))
+  lines(ecdf(oleic[region == "Southern Italy"]))
+})
+```
+
+```{r, message=FALSE}
+# By region--second try
+ecdf_ni <- with(olive, 
+                ecdf(oleic[region == "Northern Italy"]))
+ecdf_sa <- with(olive,
+                ecdf(oleic[region == "Sardinia"]))
+ecdf_si <- with(olive, 
+                ecdf(oleic[region == "Southern Italy"]))
+
+str(ecdf_ni) # This is a function!
+```
+
+```{r}
+xlim <- range(olive$oleic)
+
+plot(ecdf_ni, xlim = xlim, col = 2)
+lines(ecdf_sa, col = 3)
+lines(ecdf_si, col = 4)
+```
+
+## ECDF plot--Comments
+
+  - The output of `ecdf` is not a `matrix` or a `data.frame`, but a function!
+    + In particular, it doesn't explicitly contain the `x` and `y` values, like density.
+  - But we can get the bounds from the original data:
+    + The `y` limits should be `c(0, 1)`, because they are probabilities.
+    + The `x`-axis should cover all values in the full dataset.
+
+## Boxplot {.allowframebreaks}
+
+```{r, message=FALSE}
+boxplot(olive$oleic)
+
+# Split by region using a formula
+boxplot(oleic ~ region, data = olive)
+
+# Flip boxplots
+boxplot(oleic ~ region, data = olive,
+        horizontal = TRUE)
+```
+
+# Bivariate plots
+
+## Scatter plot {.allowframebreaks}
+
+```{r}
+plot(stars$magnitude,
+     stars$temp)
+
+# Add colour for type of stars
+with(stars, plot(magnitude, temp,
+                 col = factor(type)))
+```
+
+```{r, echo = TRUE, eval = TRUE}
+library(scatterplot3d)
+library(tidyr)
+wide_data <- spread(greenhouse_gases,
+                    gas, concentration)
+
+head(wide_data, n = 3)
+
+with(wide_data,
+     scatterplot3d(CH4,   # x axis
+                   CO2,   # y axis
+                   N2O    # z axis
+))
+```
+
+## Scatter plot--Comments
+
+  - Remember: for colours, `col` is either a number or a character string describing the colour (e.g. `col = "white"`)
+    + The variable `type` is a character string, but not describing colours...
+    + **Solution**: Transform into `factor`, which is treated as a number (i.e. the order of category).
+  - We can do 3D scatterplots, but the depth of a point is hard to read.
+
+## Bivariate density plot {.allowframebreaks}
+
+```{r}
+library(MASS)
+
+image(kde2d(stars$magnitude,
+            stars$temp))
+```
+
+## Pairs plot {.allowframebreaks}
+
+```{r, message = FALSE}
+# Select three variables
+olive_sub <- subset(olive, 
+                    select = c(eicosenoic, arachidic, 
+                               linolenic))
+
+plot(olive_sub)
+```
+
+```{r, eval = FALSE}
+# Or alternatively:
+pairs(olive_sub)
+```
+
+```{r}
+# How to put histograms on the diagonal?
+## From the help page for graphics::pairs
+panel.hist <- function(x, ...) {
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan",...)
+}
+```
+
+
+```{r}
+pairs(olive_sub,
+      diag.panel = panel.hist)
+```
+
+
+## Conclusion
+
+  - Base `R` is just as powerful as `ggplot2`.
+    + But there is no consistent interface.
+    + Adding components (e.g. data points on top of boxplots, histogram on pairs plots) is complex.
+  - For the record, I have seen high-quality, publication-ready graphs from both approaches.
+    + My personal preference is `ggplot2`, because I find it easier to iterate quickly between graphs until I find the right one.this
+    

@@ -1,0 +1,78 @@
+---
+title: "Generating Random Variates---Theory"
+author: "Max Turgeon"
+date: "11/09/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Inverse-Transform method
+
+The first method we discussed in the lecture is based on transforming a uniform variate by using the quantile function. The success of this method relies on the following theorem:
+
+### Theorem
+
+Let $X$ be a random variable with CDF $F_X$. Let $U\sim Unif(0,1)$ be uniform on the interval $(0,1)$. Then $Y = F^{-1}_X(U)$ has the same distribution as $X$.
+
+### Proof
+
+Recall the definition of the *quantile function* $F^{-1}_X$:
+$$F^{-1}_X(u) = \inf\{x \in \mathbb{R} \mid F_X(x) \geq u\}.$$
+
+Fix $u \in (0,1)$. Because $F^{-1}_X(u)$ is an infimum for the set $\{x \in \mathbb{R} \mid F_X(x) \geq u\}$, we know that
+$$ F_X\left(F^{-1}_X(u)\right) \geq u.$$
+
+Conversely, for $x\in\mathbb{R}$, we have
+$$F^{-1}_X\left(F_X(x)\right) = \inf\{y \in \mathbb{R} \mid F_X(y) \geq F_X(x)\}.$$ 
+But clearly $x\in \{y \in \mathbb{R} \mid F_X(y) \geq F_X(x)\}$, so it must be greater than the infimum: $F^{-1}_X\left(F_X(x)\right) \leq x$.
+
+Therefore, if we fix $x \in \mathbb{R}$, we can set up an equality between two sets:
+$$\left\{ u \mid F^{-1}_X(u) \leq x \right\} = \left\{ u \mid F_X(x) \geq u \right\}.$$
+By taking the probability of each set with respect to the distribution of $U$, we get an equality of probability statements:
+$$ P(F^{-1}_X(U) \leq x) = P(U \leq F_X(x)) = F_X(x),$$
+where the last equality follows from the definition of uniform distribution. \hfill$\square$
+
+## Accept-Reject algorithm
+
+Another method that was discussed is the *accept-reject* method. The idea is to sample from an "easy" distribution $Y$, and then decide if we accept or reject that proposal as a sample from our distribution of interest $X$. It may not be clear at first why it works, so let's look at a proof.
+
+### Theorem
+
+Let $X$ have density $f$ and $Y$ have density $g$.\footnote{We will assume that we have continuous distributions, but the proof works \textit{mutatis mutandis} if we replace the densities by probability mass functions.} Further suppose that there exists a constant $c > 1$ such that
+$$ \frac{f(t)}{g(t)} \leq c$$
+for all $t$ such that $f(t) > 0$. The algorithm described in the notes produces a variable $X$ distributed according to $f$.
+
+### Proof
+
+Recall from the lecture: we need to sample $y$ from $g$, $u\sim Unif(0,1)$, and compute the ratio $r:=\frac{f(y)}{cg(y)}$. If $u < r$, we accept the sample. Therefore, we need to compute our probabilities *conditional on $U < r$*. More precisely, we want to show:
+$$P\left(Y \leq x \mid U < \frac{f(Y)}{cg(Y)}\right) = P(X \leq x).$$
+
+Note that we have
+$$ P\left(Y \leq x \mid U < \frac{f(Y)}{cg(Y)}\right)= \frac{P\left(Y \leq x, U < \frac{f(Y)}{cg(Y)}\right)}{P\left(U < \frac{f(Y)}{cg(Y)}\right)}.$$
+
+We will compute both probabilities as double integrals (note that the probabilities are with respect to the joint distribution $(U,Y)$). First, we have
+
+\begin{align*}
+P\left(Y \leq x, U < \frac{f(Y)}{cg(Y)}\right) &= \int_{-\infty}^x \int_{0}^\frac{f(y)}{cg(y)} 1\cdot g(y) du dy \\
+    &= \int_{-\infty}^x \frac{f(y)}{cg(y)} g(y) dy \\
+    &= \frac{1}{c} \int_{-\infty}^x f(y) dy \\
+    &= \frac{1}{c} P(X \leq x).
+\end{align*}
+
+Similarly, we have:
+\begin{align*}
+P\left(Y \leq x, U < \frac{f(Y)}{cg(Y)}\right) &= \int_{-\infty}^\infty \int_{0}^\frac{f(y)}{cg(y)} 1\cdot g(y) du dy \\
+    &= \int_{-\infty}^\infty \frac{f(y)}{cg(y)} g(y) dy \\
+    &= \frac{1}{c} \int_{-\infty}^\infty f(y) dy \\
+    &= \frac{1}{c},
+\end{align*}
+where the last equality follows from the fact that densities integrate to 1.
+
+Putting this all together, we can see that 
+$$\frac{P\left(Y \leq x, U < \frac{f(Y)}{cg(Y)}\right)}{P\left(U < \frac{f(Y)}{cg(Y)}\right)} = P(X \leq x).$$
+which is what we needed to prove.\hfill$\square$
+
+From the proof, we see why the constant $c$ can be *almost* arbitrary; but can you see where we used the assumption that $c$ must uniformly bound the ratio of the densities? *Hint*: what is the support of the uniform random variable?

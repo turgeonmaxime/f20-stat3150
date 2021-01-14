@@ -1,0 +1,223 @@
+---
+title: "Jackknife"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(cache = FALSE, message = FALSE,
+                      linewidth = 50)
+set.seed(3150)
+```
+
+## Lecture Objective
+
+  - Use jackknife to estimate the bias and standard error of an estimator.
+
+## Motivation {.allowframebreaks}
+
+  - In the previous module, we saw how we can could perform estimation and hypothesis testing using simulations.
+    + **Main idea**: Simulate data from a fixed distribution, compute estimate/test statistic, and repeat the simulation to approximate the sampling distribution.
+  - This approach can be very powerful when studying the behaviour of estimators, or when comparing multiple testing strategies.
+  - However, there is a big obstacle in applying these methods for data analysis:
+    + *They all assume we know the data generating mechanism.*
+  - How can we apply these same principles for data analysis?
+    + **Resampling methods**
+  - We will study resampling methods for the next three modules, and we will see how they can be used for data analysis.
+
+## Jackknife {.allowframebreaks}
+
+  - The **jackknife** is a method that was first introduced to estimate the *bias* of an estimator.
+  - We start with a sample $X_1, \ldots, X_n$. From that sample, we compute an estimate $\hat{\theta}$ of a parameter $\theta$. 
+    + We are interested in estimating $E(\hat{\theta}) - \theta$.
+  - For each $i$, we can also create another sample by *omitting* the $i$-th observation:
+  $$X_1, \ldots,X_{i-1}, X_{i+1}, \ldots, X_n.$$
+  - For each of these sample, we can also compute an estimate $\hat{\theta}_{(i)}$ of $\theta$.
+    + E.g compute the sample mean or variance while omitting the $i$-th observation
+  - In other words, we now have $n+1$ estimates of $\theta$!
+  - The jackknife estimate of the bias $E(\hat{\theta}) - \theta$ is given by
+  $$\widehat{\mathrm{bias}}_{jack} = (n-1)\left(\frac{1}{n}\sum_{i=1}^n\hat{\theta}_{(i)} - \hat{\theta}\right).$$
+  
+## Example {.allowframebreaks}
+
+  - Consider the following two estimate of the variance:
+  $$\hat{\sigma}^2_1 = \frac{1}{n}\sum_{i=1}^n \left(X_i - \bar{X}\right)^2, \quad \hat{\sigma}^2_2 = \frac{1}{n-1}\sum_{i=1}^n \left(X_i - \bar{X}\right)^2.$$
+  - The only difference is the constant in front of the sum, which implies that $\hat{\sigma}^2_2$ is the unbiased estimate.
+  - Let's compute the jackknife bias estimate of $\hat{\sigma}^2_1$.
+  
+```{r}
+# Generate a random sample
+n <- 20
+xvars <- rgamma(n, shape = 3, rate = 5.5)
+
+# Compute the estimate
+theta_hat <- mean((xvars - mean(xvars))^2)
+c("estimate" = theta_hat,
+  "theoretical" = 3/5.5^2)
+```
+
+```{r}
+# Jackknife
+theta_i_hat <- numeric(n)
+
+for (i in 1:n) {
+  xvars_jack <- xvars[-i]
+  mean_i <- mean(xvars_jack)
+  theta_i_hat[i] <- mean((xvars_jack - mean_i)^2)
+}
+```
+
+\vspace{1cm}
+
+```{r}
+# Estimate of bias
+(bias <- (n-1)*(mean(theta_i_hat) - theta_hat))
+
+
+c("De-biased" = theta_hat - bias,
+  "Unbiased" = var(xvars))
+```
+
+## Example {.allowframebreaks}
+
+  - Consider the `patch` dataset in the `bootstrap` package. It contains measurements of a certain hormone on the bloodstream of 8 individuals, after wearing a patch.
+  - For each individual, we have three measurements: `placebo`, `oldpatch`, and `newpatch`.
+  - The parameter of interest is a ratio of differences:
+  $$\theta = \frac{E(\mbox{newpatch}) - E(\mbox{oldpatch})}{E(\mbox{oldpatch}) - E(\mbox{placebo})}.$$
+
+\vspace{1cm}
+
+```{r, linewidth = 75}
+library(bootstrap)
+str(patch)
+```
+
+  - `y` is `newpatch - oldpatch`, and `z` is `oldpatch - placebo`.
+  - Recall that $E(X/Y) \neq E(X)/E(Y)$. So even if we have an unbiased estimate of both the numerator and the denominator of $\theta$, their ratio will generally be **biased**.
+  
+```{r}
+# Estimate of theta
+theta_hat <- mean(patch$y)/mean(patch$z)
+```
+
+```{r}
+# Jackknife
+n <- nrow(patch)
+theta_i <- numeric(n)
+
+for (i in 1:n) {
+  theta_i[i] <- mean(patch[-i,"y"])/mean(patch[-i,"z"])
+}
+```
+
+\vspace{1in}
+
+```{r}
+# Estimate of bias
+(bias <- (n-1)*(mean(theta_i) - theta_hat))
+
+c("Biased" = theta_hat,
+  "De-biased" = theta_hat - bias)
+```
+
+  - The bias is significant: it represents `r scales::percent(abs(bias/theta_hat))` of the estimate.
+
+**But be careful**: 
+  
+```{r}
+# NOT THE SAME THING
+mean(patch$y/patch$z)
+```
+
+## Estimate of the standard error
+
+  - The jackknife can also be used to estimate the standard error of an estimate:
+  $$\widehat{\mathrm{se}}_{jack} = \sqrt{\frac{n-1}{n}\sum_{i=1}^n\left(\hat{\theta}_{(i)} - \frac{1}{n}\sum_{i=1}^n\hat{\theta}_{(i)}\right)^2}.$$
+  
+## Example (cont'd)
+
+```{r}
+# Continuing on with the patch dataset
+(se <- sqrt((n-1)*mean((theta_i - mean(theta_i))^2)))
+# 95% CI
+c("LB" = theta_hat - bias - 1.96*se,
+  "UB" = theta_hat - bias + 1.96*se)
+```
+
+## Example {.allowframebreaks}
+
+  - We will consider the `law` dataset in the `bootstrap` package. 
+  - It contains information on average `LSAT` and `GPA` scores for 15 law schools.
+  - We are interested in the correlation $\rho$ between these two variables
+  
+```{r}
+library(bootstrap)
+str(law)
+```
+
+```{r}
+# Estimate of rho
+(rho_hat <- cor(law$LSAT, law$GPA))
+```
+
+```{r}
+# Jackknife
+n <- nrow(law)
+rho_i <- numeric(n)
+
+for (i in 1:n) {
+  rho_i[i] <- cor(law$LSAT[-i], law$GPA[-i])
+}
+```
+
+\vspace{1cm}
+
+```{r}
+# Estimate of bias
+(bias <- (n-1)*(mean(rho_i) - rho_hat))
+
+c("Biased" = rho_hat,
+  "De-biased" = rho_hat - bias)
+```
+
+```{r}
+(se <- sqrt((n-1)*mean((rho_i - mean(rho_i))^2)))
+# 95% CI
+c("LB" = rho_hat - bias - 1.96*se,
+  "UB" = rho_hat - bias + 1.96*se)
+```
+
+
+## Final remarks {.allowframebreaks}
+
+  - The jackknife is a simple resampling technique to estimate bias and standard error.
+    + The idea is to remove one observation at a time and recompute the estimate, so that we get a sample from the sampling distribution.
+  - The theoretical details behind the jackknife are beyond the scope for this course. But two important observations:
+    + The "debiased" estimate is generally only asymptotically unbiased. But its bias goes to 0 "more quickly" than the bias of the original estimator.
+    + The jackknife only works well for "smooth plug-in estimators". In particular, the jackknife does **not** work well with the median.
+  - The jackknife was generalized in two important ways:
+    + **Bootstrap**: This will be the main topic for next week.
+    + **Cross-validation**: This is a method for estimating the prediction error (see STAT 4250).

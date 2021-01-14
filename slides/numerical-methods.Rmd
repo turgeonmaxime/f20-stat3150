@@ -1,0 +1,683 @@
+---
+title: "Numerical Methods"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(cache = FALSE, message = FALSE,
+                      linewidth = 50)
+```
+
+## Lecture Objectives
+
+  - Describe the main differences between computer arithmetic and "normal" arithmetic.
+  - Apply root finding methods for one-dimensional problems.
+
+## Motivation
+
+  - Over the last few weeks, we discussed resampling methods.
+    + Useful for studying the sampling distribution of estimators and test statistics.
+  - For the next three weeks, we will discuss **numerical methods** and **optimisation**
+    + These methods can be used to *compute* estimators.
+  - Data analysis often combines both approaches.
+    + Estimation and inference.
+    
+## Question
+
+  - Can you give examples of estimators defined by solving an equation $f(x) = c$?
+  - Can you recall an example from the notes/assignments?
+  
+## Testing equality {.allowframebreaks}
+
+  - To test for equality of integers, booleans or strings, we can use `==`.
+    + `3 == 4`, `TRUE == FALSE`, `"hello" == "world"`.
+  - But with decimal numbers, the equality operator may behave in surprising ways
+  
+```{r}
+# Expected
+(0.5 + 0.5) == 1
+
+# Unexpected
+(0.1 + 0.2) == 0.3
+
+# Why?
+0.3 - (0.1 + 0.2)
+```
+
+\vspace{1cm}
+
+  - In computer's memory, decimal numbers are represented in binary scientific notation.
+    + Which leads to rounding errors that may be hard to predict.
+  - `R` gives us two functions to test equality more carefully:
+    + `all.equal`: Tests for "near equality", i.e. within a tolerance level
+    + `identical`: Tests for whether two objects are identical (including length, attributes, etc.).
+    
+\vspace{2cm}
+    
+```{r}
+all.equal(0.1 + 0.2, 0.3)
+identical(0.1 + 0.2, 0.3)
+```
+
+\vspace{2cm}
+
+```{r}
+# But be careful!
+all.equal(1, 2)
+# Better
+isTRUE(all.equal(1, 2))
+```
+
+\vspace{1cm}
+
+  - Another approach: check whether `abs(x - y) < epsilon`, for an `epsilon` of your choice.
+  
+```{r}
+abs(0.3 - (0.2 + 0.1)) < 10^-10
+```
+
+## Overflow and underflow
+
+  - Another way in which computer arithmetic can be surprising: very small and very large numbers.
+    + Small numbers may be rounded down to zero.
+    + Large numbers will be turn into `Inf`.
+  - In both cases, there are two strategies that can help:
+    + Simplify expressions by hand as much as you can first: $\frac{n!}{(n - 2)!} = n(n-1)$.
+    + Compute on logarithmic scale, and convert answer back to original scale with `exp`.
+    
+## Example {.allowframebreaks}
+
+  - We know the Poisson mass function is
+  $$P(X = k) = \frac{e^{-\lambda}\lambda^{k}}{k!} > 0.$$
+
+  - But when $k$ is large, we may run into underflow issues.
+
+\vspace{1cm}
+
+```{r}
+dpois(100, lambda = 1)
+dpois(200, lambda = 1)
+# Use logarithms
+dpois(200, lambda = 1, log = TRUE)
+```
+
+## Exercise
+
+Using the properties of logarithms, evaluate
+$$\frac{\Gamma\left(\frac{n - 1}{2}\right)}{\Gamma\left(\frac{1}{2}\right)\Gamma\left(\frac{n - 2}{2}\right)},$$
+for $n=400$. Use `lgamma` to evaluate the Gamma function on the logarithmic scale.
+
+## Solution
+
+```{r}
+n <- 400
+# With gamma
+(gamma(0.5*(n-1))/(gamma(0.5)*gamma(0.5*(n-2))))
+# With lgamma
+exp(lgamma(0.5*(n-1)) - lgamma(0.5) - lgamma(0.5*(n-2)))
+```
+
+## Finding the roots of a function
+
+  - The first class of numerical methods we will look at our **root finding algorithms** (in one dimension).
+  - Assume we have a continuous function $f(x)$ of one variable. For a given constant $c$, we want to find the values $x$ such that $f(x) = c$.
+    + Equivalent to replacing $f(x)$ with $f^\prime(x) = f(x) - c$ and looking for when $f^\prime(x) = 0$.
+  - We will look at two methods:
+    + Bisection method
+    + Brent's method
+
+## Bisection method {.allowframebreaks}
+
+  - Assume that we have $f(a)$ and $f(b)$ are nonzero and have opposite sign.
+    + Exactly one is negative, the other is positive.
+  - Because $f$ is continuous, the *Intermediate Value Theorem* tells us that there must be a value $x\in (a, b)$ such that $f(x) = 0$.
+    + It may not be unique, but there's at least one such $x$.
+
+\vspace{3cm}
+    
+  - With the bisection method, we look at the mid-point of $[a, b]$: $x_1 = \frac{b-a}{2} + a = \frac{b + a}{2}$, and we evaluate $f(x_1)$.
+    + If $f(a)$ and $f(x_1)$ have the **same sign**, then the root is in the interval $(x_1, b)$.
+    + If $f(a)$ and $f(x_1)$ have **opposite sign**, then the root is in the interval $a, x_1)$.
+  - We then repeat the process on the new interval, which gives us a sequence of "guesses" $x_1, x_2, x_3, \ldots$.
+    + This sequence is **guaranteed** to converge to a root of $f(x) = 0$.
+  - We stop when we are "close enough", i.e. when $\lvert f(x_n) \rvert < \epsilon$.
+  
+
+## Demo {.allowframebreaks}
+
+```{r bisec0, echo=FALSE}
+xseq <- seq(-3, 3, length.out = 100)
+yseq <- ifelse(xseq < -0.5*pi,
+               -0.5, sin(xseq) + 0.5)
+
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+```
+
+```{r bisec1, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+```
+
+```{r bisec2, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+
+# Second guess
+points(-1.5, sin(-1.5) + 0.5,
+       col = "red", pch = 19)
+lines(c(-1.5, -1.5), c(0, sin(-1.5) + 0.5),
+      lty = 2)
+```
+
+```{r bisec3, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+
+# Second guess
+points(-1.5, sin(-1.5) + 0.5,
+       col = "red", pch = 19)
+lines(c(-1.5, -1.5), c(0, sin(-1.5) + 0.5),
+      lty = 2)
+
+# Third guess
+points(-0.75, sin(-0.75) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.75, -0.75), c(0, sin(-0.75) + 0.5),
+      lty = 2)
+```
+
+```{r bisec4, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+
+# Second guess
+points(-1.5, sin(-1.5) + 0.5,
+       col = "red", pch = 19)
+lines(c(-1.5, -1.5), c(0, sin(-1.5) + 0.5),
+      lty = 2)
+
+# Third guess
+points(-0.75, sin(-0.75) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.75, -0.75), c(0, sin(-0.75) + 0.5),
+      lty = 2)
+
+# Fourth guess
+points(-0.375, sin(-0.375) + 0.5,
+       col = "green", pch = 19)
+lines(c(-0.375, -0.375), c(0, sin(-0.375) + 0.5),
+      lty = 2)
+```
+
+```{r bisec5, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+
+# Second guess
+points(-1.5, sin(-1.5) + 0.5,
+       col = "red", pch = 19)
+lines(c(-1.5, -1.5), c(0, sin(-1.5) + 0.5),
+      lty = 2)
+
+# Third guess
+points(-0.75, sin(-0.75) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.75, -0.75), c(0, sin(-0.75) + 0.5),
+      lty = 2)
+
+# Fourth guess
+points(-0.375, sin(-0.375) + 0.5,
+       col = "green", pch = 19)
+lines(c(-0.375, -0.375), c(0, sin(-0.375) + 0.5),
+      lty = 2)
+
+# Fifth guess
+points(-0.5625, sin(-0.5625) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.5625, -0.5625), c(0, sin(-0.5625) + 0.5),
+      lty = 2)
+```
+
+```{r bisec6, echo=FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# First guess
+points(0, sin(0) + 0.5,
+       col = "green", pch = 19)
+lines(c(0, 0), c(0, sin(0) + 0.5),
+      lty = 2)
+
+# Second guess
+points(-1.5, sin(-1.5) + 0.5,
+       col = "red", pch = 19)
+lines(c(-1.5, -1.5), c(0, sin(-1.5) + 0.5),
+      lty = 2)
+
+# Third guess
+points(-0.75, sin(-0.75) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.75, -0.75), c(0, sin(-0.75) + 0.5),
+      lty = 2)
+
+# Fourth guess
+points(-0.375, sin(-0.375) + 0.5,
+       col = "green", pch = 19)
+lines(c(-0.375, -0.375), c(0, sin(-0.375) + 0.5),
+      lty = 2)
+
+# Fifth guess
+points(-0.5625, sin(-0.5625) + 0.5,
+       col = "red", pch = 19)
+lines(c(-0.5625, -0.5625), c(0, sin(-0.5625) + 0.5),
+      lty = 2)
+
+# Sixth guess
+points(-0.46875, sin(-0.46875) + 0.5,
+       col = "green", pch = 19)
+lines(c(-0.46875, -0.46875), c(0, sin(-0.46875) + 0.5),
+      lty = 2)
+```
+
+## Example {.allowframebreaks}
+
+  - We will look at the function 
+  $$f(x) = a^2 + x^2 + \frac{2ax}{n-1} - (n - 2),$$
+  for $a=0.5$ and $n=20$, on the interval $(0, 5n)$.
+  
+```{r}
+a <- 0.5
+n <- 20
+# First create a function
+fun <- function(x) {
+  a^2 + x^2 + 2*a*x/(n-1) - n + 2
+}
+```
+
+```{r}
+# Check output at interval bounds
+x_lb <- 0 # Lower bound
+x_ub <- 5*n # Upper bound
+
+c(fun(x_lb), fun(x_ub))
+```
+
+```{r}
+# Set up----
+x_next <- 0.5*(x_ub - x_lb) + x_lb # Midpoint
+epsilon <- 10^-10
+f_lb <- fun(x_lb)
+f_ub <- fun(x_ub)
+f_next <- fun(x_next)
+iterations <- 0
+```
+
+```{r}
+while(abs(f_next) > epsilon) {
+  iterations <- iterations + 1
+  if (f_ub*f_next > 0) {
+    x_ub <- x_next # same sign, move left
+    f_ub <- fun(x_ub) } else {
+    x_lb <- x_next # opposite sign, move right
+    f_lb <- fun(x_lb) }
+  x_next <- 0.5*(x_ub - x_lb) + x_lb
+  f_next <- fun(x_next)
+}
+```
+
+
+```{r}
+# Our estimate the solution f(x) = 0
+x_next
+# Number of iterations
+iterations
+```
+
+
+## Exercise
+
+Use the bisection method to find the solution to the equation
+$$ \cos(x) = x^3.$$
+
+## Solution {.allowframebreaks}
+
+  - First, we can look at the solution of $g(x) = 0$, for $g(x) = \cos(x) - x^3$.
+  - Based on our knowledge of these two functions, we deduce that a solution, if it exists, must be positive.
+  - Let's look at the interval $[0, 2]$
+
+```{r}
+# First create a function
+g_fun <- function(x) {
+  cos(x) - x^3
+}
+```
+
+```{r}
+# Check output at interval bounds
+x_lb <- 0 # Lower bound
+x_ub <- 2 # Upper bound
+
+c(g_fun(x_lb), g_fun(x_ub))
+```
+
+```{r}
+# Set up----
+x_next <- 0.5*(x_ub - x_lb) + x_lb # Midpoint
+epsilon <- 10^-10
+g_lb <- g_fun(x_lb)
+g_ub <- g_fun(x_ub)
+g_next <- g_fun(x_next)
+iterations <- 0
+```
+
+```{r}
+while(abs(g_next) > epsilon) {
+  iterations <- iterations + 1
+  if (g_ub*g_next > 0) {
+    x_ub <- x_next # same sign, move left
+    g_ub <- g_fun(x_ub) } else {
+    x_lb <- x_next # opposite sign, move right
+    g_lb <- g_fun(x_lb) }
+  x_next <- 0.5*(x_ub - x_lb) + x_lb
+  g_next <- g_fun(x_next)
+}
+```
+
+
+```{r}
+# Our estimate the solution g(x) = 0
+x_next
+# Number of iterations
+iterations
+```
+
+```{r}
+# Plot functions to check
+xseq <- seq(-2, 2, length.out = 100)
+plot(xseq, cos(xseq), type = "l")
+lines(xseq, xseq^3)
+abline(v = x_next, lty = 2)
+```
+
+
+## Brent's method {.allowframebreaks}
+
+  - The bisection method is guaranteed to converge.
+    + Intermediate Value Theorem
+  - But convergence can be slow...
+    + For an initial interval of length $L$, after $n$ step the bracketing interval has length $L/2^n$.
+  - Other methods (e.g. secant method) can converge faster, but they're not guaranteed to converge...
+  - **Brent's method** combines the convergence speed of these methods, but guarantees convergence by keeping the root within a shrinking interval.
+  - I will broadly describe the algorithm, but you are not expected to implement it. We will use `R`'s implementation.
+  
+### Algorithm (Broadly speaking)
+
+Start with interval $[a, b]$ and continuous function $f(x)$. The values $f(a),f(b)$ have opposite signs.
+
+  1. Define a third point $(c, f(c))$, where $c$ is the value at which a linear interpolation crosses the x-axis. Depending on the sign of $f(c)$, we know the solution $f(x) = 0$ falls inside the interval $(a,c)$ or $(c,b)$.
+  2. Fit a sideways parabola to all three points, and find the intersection $x_1$ with the x-axis. If $x_1$ falls outside the interval from Step 1, replace $x_1$ by the midpoint of the interval (i.e. bisection).
+  3. Repeat until convergence.
+
+## Demo {.allowframebreaks}
+
+```{r brent0, echo = FALSE}
+library(PolynomF)
+xseq <- seq(-3, 3, length.out = 100)
+yseq <- ifelse(xseq < -0.5*pi,
+               -0.5, sin(xseq) + 0.5)
+
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+```
+
+```{r brent1, echo = FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+# Linear interpolation
+lines(c(-3, 3), c(-0.5, sin(3) + 0.5),
+      lty = 3)
+x1 <- -3*sin(3)/(sin(3) + 1)
+y1 <- sin(x1) + 0.5
+
+points(x1, y1, pch = 19, col = "green")
+lines(c(x1, x1), c(0, y1),
+      lty = 2)
+```
+
+```{r brent2, echo = FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+points(x1, y1, pch = 19, col = "green")
+lines(c(x1, x1), c(0, y1),
+      lty = 2)
+
+# Inverse Quadratic Interpolation I
+p <- poly_calc(c(-0.5, sin(3) + 0.5, y1),
+               c(-3, 3, x1))
+
+yvec_iqi <- seq(-1, 2, length.out = 100)
+xvec_iqi <- p(yvec_iqi)
+
+lines(xvec_iqi, yvec_iqi, lty = 3)
+
+x2 <- p(0)
+y2 <- sin(x2) + 0.5
+
+points(x2, y2, pch = 19, col = "red")
+lines(c(x2, x2), c(0, y2),
+      lty = 2)
+```
+
+```{r brent3, echo = FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+points(x1, y1, pch = 19, col = "green")
+lines(c(x1, x1), c(0, y1),
+      lty = 2)
+
+points(x2, y2, pch = 19, col = "red")
+lines(c(x2, x2), c(0, y2),
+      lty = 2)
+
+# Inverse Quadratic Interpolation II
+p <- poly_calc(c(-0.5, y1, y2),
+               c(-3, x1, x2))
+
+yvec_iqi <- seq(-1, 2, length.out = 100)
+xvec_iqi <- p(yvec_iqi)
+
+lines(xvec_iqi, yvec_iqi, lty = 3)
+
+x3 <- p(0)
+y3 <- sin(x3) + 0.5
+
+points(x3, y3, pch = 4, col = "black",
+       cex = 1.5)
+lines(c(x3, x3), c(0, y3),
+      lty = 2)
+```
+
+```{r brent4, echo = FALSE}
+# Initial setup
+plot(xseq, yseq, type = "l",
+     ylim = c(-1, 2), xlab = "x", ylab = "f(x)")
+abline(h = 0)
+points(c(-3, 3), c(-0.5, sin(3) + 0.5),
+       col = c("red", "green"), pch = 19)
+
+points(x1, y1, pch = 19, col = "green")
+lines(c(x1, x1), c(0, y1),
+      lty = 2)
+
+points(x2, y2, pch = 19, col = "red")
+lines(c(x2, x2), c(0, y2),
+      lty = 2)
+
+# Replace with bisection
+x3 <- 0.5*(x2-x1) + x1
+y3 <- sin(x3) + 0.5
+
+points(x3, y3, pch = 19, col = "red")
+lines(c(x3, x3), c(0, y3),
+      lty = 2)
+```
+
+## Example {.allowframebreaks}
+
+  - We will use the same example as above: 
+  $$f(x) = a^2 + x^2 + \frac{2ax}{n-1} - (n - 2),$$
+  for $a=0.5$ and $n=20$, on the interval $(0, 5n)$.
+  
+```{r}
+a <- 0.5
+n <- 20
+# Create a function
+fun <- function(x) {
+  a^2 + x^2 + 2*a*x/(n-1) - n + 2
+}
+```
+
+  - We will use the function `uniroot` in `R`:
+    + The first argument is the function $f(x)$.
+    + The second argument is the interval $[a,b]$.
+    + The argument `tol` controls the convergence.
+    
+```{r}
+output <- uniroot(f = fun, 
+                  interval = c(0, 5*n),
+                  tol = 10^-10)
+names(output)
+```
+
+```{r}
+output$root
+output$iter
+```
+
+
+## Exercise
+
+Use Brent's method to find the root of 
+$$ f(x) = e^{-x}\left(3.2\sin(x) - 0.5\cos(x)\right),$$
+on the interval $[3, 4]$.
+
+## Solution
+
+```{r}
+result <- uniroot(function(x) {
+  exp(-x)*(3.2*sin(x) - 0.5*cos(x))
+  }, interval = c(3, 4))
+
+result$root
+```
+
+## Summary
+
+  - We discussed some important differences between computer arithmetic and "normal" arithmetic.
+    + Rounding errors
+    + Overflow and underflow
+  - We introduced two methods for finding roots $f(x) = 0$ in one-dimension.
+    + Why can't we apply these methods in higher dimensions?
+  - On Thursday, we will see how this can be applied to **Maximum Likelihood Estimation**.

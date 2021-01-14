@@ -1,0 +1,399 @@
+---
+title: "Monte Carlo Integration"
+draft: false
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+  - \newcommand{\Var}{\mathrm{Var}}
+  - \newcommand{\Cov}{\mathrm{Cov}}
+---
+
+```{r,setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(cache = FALSE, message = FALSE,
+                      linewidth = 50)
+set.seed(3150)
+```
+
+## Lecture Objectives
+
+  - Understand what Monte Carlo integration is and why it works.
+  - Be able to use random sampling to estimate statistical quantities of interest.
+  - Learn about strategies for reducing the variance of the estimates.
+
+## Motivation
+
+  - Many statistical quantities of interest can be defined as integrals.
+    + E.g. the expectation.
+  - But symbolic integration is difficult, and some functions don't have anti-derivatives!
+  - We will see how integrals can be estimated by taking the average of a suitable collection of **random variates**.
+    + In Module 9, we'll talk about *numerical integration*, which can also be used instead of symbolic integration.
+
+## Simple motivating example {.allowframebreaks}
+
+  - Imagine we want to estimate the following definite integral:
+  $$\int_0^1 e^{-x} dx.$$
+  - From Calculus, we know that $G(x) = -e^{-x}$ is an anti-derivative for $g(x) = e^{-x}$, and so we can quickly check that the integral is equal to $1 - e^{-1}\approx 0.6321$.
+  - Let's generate uniform variates on $(0,1)$ and take the average of their image by $g$:
+  
+```{r}
+n <- 1000
+unif_vars <- runif(n)
+mean(exp(-unif_vars))
+# Compare to actual value
+1 - exp(-1)
+```
+
+  - **What's going on?** If we write $X_1, \ldots, X_n$ for the uniform variates, the Law of Large Numbers tells us that
+  $$ \frac{1}{n}\sum_{i=1}^n g(X_i) \to E(g(X)),\quad\mbox{where }X\sim U(0,1).$$
+  - But since the density of a uniform random variable on $(0,1)$ is just the constant function $1$, we have
+  $$E(g(X)) = \int_0^1 g(x) dx.$$
+  - Let's see what happens if we try on the interval $(0, 2)$:
+
+```{r}
+unif_vars <- runif(n, max = 2)
+mean(exp(-unif_vars))
+# Compare to actual value
+1 - exp(-2)
+```
+
+  - Something isn't right... We get about half of what we expect... 
+  - That's because the density of a uniform variable on $(0, 2)$ is no longer the constant function $1$, but rather the constant function $1/2$:
+  $$\frac{1}{n}\sum_{i=1}^n g(X_i) \to \frac{1}{2}\int_0^2 g(x) dx.$$
+  - Therefore, we need to multiply the sample mean by 2:
+  
+```{r}
+2*mean(exp(-unif_vars))
+```
+
+## Simple Monte Carlo integration
+
+Let $g(x)$ be an integrable function defined on the bounded interval $(a,b)$. To estimate the integral
+$$\int_a^b g(x) dx,$$
+follow this algorithm:
+
+  1. Generate $X_1, \ldots, X_n$ independently from a uniform distribution on $(a,b)$.
+  2. Compute the sample mean $\overline{g(X)} = \frac{1}{n}\sum_{i=1}^ng(X_i)$.
+  3. Estimate the integral via $(b-a)\overline{g(X)}$.
+  
+## Slightly more complex example {.allowframebreaks}
+
+  - Once we know that the LLN is working under the hood, we can expand our application beyond the uniform distribution.
+  - Let $X$ be a continuous variable with density $f$. Then we know that
+  $$E(g(X)) = \int_{-\infty}^\infty g(x)f(x)dx.$$
+  - Therefore, if we generate $X_1, \ldots, X_n$ independently from $f$, we can estimate $E(g(X))$ using   $$\overline{g(X)} = \frac{1}{n}g(X_i).$$
+  - We will apply these ideas to the following integral:
+  $$\int_{0}^\infty \frac{e^{-x}}{1 + x}dx.$$
+  - This integral is the product of a function $g(x) = \frac{1}{1 + x}$ and the density of an exponential $Exp(1)$. In other words:
+  $$\int_{0}^\infty \frac{e^{-x}}{1 + x}dx = E\left(\frac{1}{1 + X}\right),$$
+  where $X\sim Exp(1)$.
+  
+```{r}
+n <- 1000
+exp_vars <- rexp(n)
+mean(1/(1 + exp_vars))
+```
+  
+## Variance and standard error {.allowframebreaks}
+
+  - As we saw earlier, MC integration with $n=1000$ samples gave an estimate "close" to the true value.
+    + Can we measure how close?
+  - Let $\hat{\theta} = \frac{1}{n}f(X_i)$ be our sample mean. 
+    + By the LLN, it converges to $\theta = E(f(X))$.
+  - **Exercise**: If $\sigma^2$ is the variance of $f(X)$, check that the variance of $\hat{\theta}$ is equal to $\sigma^2/n$.
+  - For a general function $f(x)$, we don't know the variance $\sigma^2$, so we need to estimate it:
+  $$\hat{\sigma}^2 = \frac{1}{n}\sum_{i=1}^n \left(f(X_i) - \hat{\theta}\right)^2.$$
+  - Now, we can use the Central Limit Theorem:
+  $$ \frac{\hat{\theta} - \theta}{\sqrt{\hat{\sigma}^2/n}} \to N(0, 1).$$
+  - We can construct an approximate 95% confidence interval around $\hat{\theta}$ as follows:
+  $$\hat{\theta} \pm 1.96 \sqrt{\hat{\sigma}^2/n}.$$
+
+## Examples {.allowframebreaks}
+
+```{r}
+# The first uniform example
+n <- 1000
+unif_vars <- runif(n)
+theta_hat <- mean(exp(-unif_vars))
+sigma_hat <- sd(exp(-unif_vars))
+
+c("Lower" = theta_hat - 1.96*sigma_hat/sqrt(n),
+  "Upper" = theta_hat + 1.96*sigma_hat/sqrt(n))
+```
+
+```{r}
+# Exponential example
+exp_vars <- rexp(n)
+theta_hat <- mean(1/(1 + exp_vars))
+sigma_hat <- sd(1/(1 + exp_vars))
+
+c("Lower" = theta_hat - 1.96*sigma_hat/sqrt(n),
+  "Upper" = theta_hat + 1.96*sigma_hat/sqrt(n))
+```
+
+## Convergence {.allowframebreaks}
+
+  - How can we assess convergence of our Monte Carlo estimate?
+    + Look at **trace plots**
+  - A trace plot displays the estimate as a function of the sample size.
+    + Instead of recomputing for different sample sizes, use `dplyr::cummean` function to compute the cumulative mean.
+    
+```{r}
+library(dplyr)
+# Recall our first example
+n <- 1000
+unif_vars <- runif(n)
+theta_hat <- cummean(exp(-unif_vars))
+
+plot(theta_hat,
+     type = "l")
+```
+
+ - We have evidence of convergence, because the line has stopped "bouncing around", i.e. the movement happens in a very narrow range.
+ - Using our computations above, we can also put a confidence band around the trace plot.
+ 
+```{r}
+sigma2_hat <- cumstats::cumvar(exp(-unif_vars))
+sigma_hat <- sqrt(sigma2_hat)
+
+plot(theta_hat, type = "l")
+lines(theta_hat + 1.96*sigma_hat/sqrt(seq(1, n)), 
+      lty = 2)
+lines(theta_hat - 1.96*sigma_hat/sqrt(seq(1, n)), 
+      lty = 2)
+```
+
+  - **Can we find an example that doesn't converge?**
+  - Recall: the LLN requires that the expectation of the random variables be *finite*.
+    + So we can cook up an example using the Cauchy distribution.
+    
+```{r}
+n <- 1000
+cauchy_vars <- rcauchy(n)
+theta_hat <- cummean(cauchy_vars)
+
+plot(theta_hat,
+     type = "l")
+```
+
+## Example {.allowframebreaks}
+
+  - Let's say we want to estimate the following integral:
+  $$\int_0^1 \frac{1}{x} dx.$$
+  - **Can you spot the problem?**
+  
+```{r}
+n <- 1000000
+unif_vars <- runif(n)
+theta_hat <- mean(1/unif_vars)
+sigma_hat <- sd(1/unif_vars)
+c(theta_hat, sigma_hat/sqrt(n))
+```
+
+
+```{r}
+# Let's look at a trace plot
+theta_hat <- cummean(1/unif_vars)
+# We'll only look at every 100th value
+index_val <- seq(100, n, by = 100)
+plot(x = index_val,
+     y = theta_hat[index_val],
+     type = "l")
+```
+
+  - **Conclusion**: Be careful! Monte Carlo integration will always give you a number. It's your job as a statistician to decide if you can trust it.
+    + In this example, we knew from calculus that the integral is infinite.
+    + In general cases, either prove analytically the integral exists, or at least look at a trace plot.
+
+## Variance reduction {.allowframebreaks}
+
+  - We argued above using the CLT that the standard error of our estimate is
+  $$\frac{\sigma}{\sqrt{n}}.$$
+  - The parameter $\sigma$ is a constant--it's determined by the integral we are trying to estimate.
+    + $\sigma^2 = \mathrm{Var}(f(X))$
+  - Therefore, the only parameter we can control is $n$.
+    + By increasing $n$, we can *decrease* the standard error.
+  - But because of the square root in the denominator, improvements are smaller as $n$ increases.
+    + For example, if for $n_1$ samples, the standard error is approximately 0.01, you need to increase the sample size by a factor of $100^2=10000$ to *decrease* the standard error to 0.0001.
+    + In other words, we would need $n_2 = 10000n_1$ random samples!
+  
+## Example {.allowframebreaks}
+
+```{r}
+# Going back to second example
+# Recall: Need to multiply by 2!
+n <- 1000
+unif_vars <- runif(n, max = 2)
+theta_hat <- 2*mean(exp(-unif_vars))
+sigma_hat <- 2*sd(exp(-unif_vars))
+sigma_hat/sqrt(n)
+```
+
+```{r echo = FALSE}
+options(scipen = 999)
+```
+
+```{r}
+# What if we want a standard error of 0.0001?
+factor <- (sigma_hat/sqrt(n)/0.0001)^2
+(n2 <- factor * n)
+
+unif_vars2 <- runif(n2, max = 2)
+2*sd(exp(-unif_vars2))/sqrt(n2)
+```
+
+## Antithetic variables {.allowframebreaks}
+
+  - **Antithetic variables** is a general strategy for reducing the variance *without changing the sample size*.
+  - The motivation is as follows: if we have random variables $X,Y$, the variance of their average is
+  \begin{align*}
+  \mathrm{Var}\left(\frac{X + Y}{2}\right) &= \frac{1}{4}\mathrm{Var}\left(X + Y\right)\\
+    &= \frac{1}{4}\left(\mathrm{Var}(X) + \mathrm{Var}(Y) + 2\mathrm{Cov}(X, Y)\right).
+  \end{align*}
+  - If $X$ and $Y$ are independent, their covariance is zero and the variance of the sample mean is 
+  $$\frac{1}{4}\left(\mathrm{Var}(X) + \mathrm{Var}(Y)\right).$$
+  - However, if $X$ and $Y$ are **negatively** correlated, we can actually achieve a **smaller** variance.
+    + For example, if $U\sim U(0,1)$, then $X=U$ and $Y= 1 - U$ are uniform on $(0,1)$, and they are negatively correlated: $\mathrm{Cov}(U, 1 - U) = -1/12$
+    
+## Monotone functions
+
+  - More generally, we are interested in the following question: if $f$ is an integrable function, $U\sim U(0,1)$, when are $f(U)$ and $f(1 - U)$ **negatively** correlated.
+    + Answer: when $f$ is a **monotone** function.
+  - Recall the following definitions:
+    + We say $f$ is *increasing* if $f(x)\leq f(y)$ whenever $x\leq y$.
+    + We say $f$ is *decreasing* if $f(x)\geq f(y)$ whenever $x\leq y$.
+    + We say $f$ is *monotone* if $f$ is either increasing or decreasing.
+    
+
+## Example {.allowframebreaks}
+
+  - We will look at the following integral:
+  $$\int_0^1 \sin\left(\frac{\pi x}{2}\right) dx.$$
+  - Note that on this interval, the function $f(x) = \sin\left(\frac{\pi x}{2}\right)$ is increasing.
+  - We will compare both the classical approach and the one based on antithetic variables.
+  
+```{r}
+# Classical approach
+n <- 1000
+unif_vars <- runif(n)
+theta_hat <- mean(sin(0.5*pi*unif_vars))
+sigma_hat <- sd(sin(0.5*pi*unif_vars))
+c(theta_hat, sigma_hat/sqrt(n))
+```
+
+```{r}
+# Antithetic variables
+n <- 500
+unif_vars <- runif(n)
+theta_hat <- mean(sin(0.5*pi*c(unif_vars,
+                               1 - unif_vars)))
+sigma_hat <- sd(sin(0.5*pi*c(unif_vars,
+                               1 - unif_vars)))
+c(theta_hat, sigma_hat/sqrt(2*n))
+```
+
+  - In other words, we get the same standard error **with half the number of samples**.
+  
+## Example {.allowframebreaks}
+
+  - We will look at the exponential expectation again:
+  $$\int_{0}^\infty \frac{e^{-x}}{1 + x}dx.$$
+  - We know from the last module that if $U\sim U(0, 1)$, we also have 
+  $$-\log(U) \sim Exp(1),\qquad -\log(1 - U) \sim Exp(1).$$
+  
+```{r}
+# Classical approach
+n <- 1000
+exp_vars <- rexp(n)
+theta_hat <- mean(1/(1 + exp_vars))
+sigma_hat <- sd(1/(1 + exp_vars))
+c(theta_hat, sigma_hat/sqrt(n))
+```
+
+```{r}
+# Antithetic variables
+n <- 1000
+unif_vars <- runif(n)
+exp_vars <- c(-log(unif_vars), -log(1 - unif_vars))
+theta2_hat <- mean(1/(1 + exp_vars))
+sigma2_hat <- sd(1/(1 + exp_vars))
+c(theta2_hat, sigma2_hat/sqrt(2*n))
+```
+
+## Control variates {.allowframebreaks}
+
+  - **Control variates** are a more general idea than antithetic variables.
+  - The setting is the same: we want to estimate $\theta = E(g(X))$. 
+  - Now, let's assume that for a function $h$, we know the value $\mu = E(h(X))$.
+    + E.g. $h(x) = x$ implies $\mu$ is the mean of $X$.
+  - For any constant $c\in\mathbb{R}$, we can define
+  $$\hat{\theta}_c = g(X) + c(h(X) - \mu).$$
+  - **Exercise**: Check that $E(\hat{\theta}_c) = \theta$ for all $c$.
+  - Let's compute the variance of $\hat{\theta}_c$:
+  \begin{align*}
+  \Var\left(\hat{\theta}_c\right) &= \Var\left(g(X) + c(h(X) - \mu)\right)\\
+    &= \Var\left(g(X)\right) + c^2\Var\left(h(X)\right) + 2c\Cov\left(g(X), h(X)\right).
+  \end{align*}
+  - The variance of $\hat{\theta}_c$ is a function of $c$, and it attains its minimum at
+  $$c^* = -\frac{\Cov\left(g(X), h(X)\right)}{\Var\left(h(X)\right)}.$$
+  - **No free lunch**: We still need to compute $\Cov\left(g(X), h(X)\right)$ and $\Var\left(h(X)\right)$...
+
+## Example {.allowframebreaks}
+
+  - The exponential expectation:
+  $$\int_{0}^\infty \frac{e^{-x}}{1 + x}dx.$$
+  - Let's take $h(x) = 1 + x$. Then if $X\sim Exp(1)$, we know
+  $$E(1 + X) = 2, \qquad \Var(1 + X) = 1.$$
+  - To compute the covariance, note that
+  \begin{align*}
+  E(g(X)h(X)) &= \int_0^\infty g(X)h(X)\exp(-x) dx\\
+    &= \int_0^\infty \frac{1+x}{1+x}\exp(-x) dx\\
+    &= \int_0^\infty \exp(-x) dx\\
+    &= 1.\\
+  \end{align*}
+  - From this, we get
+  \begin{align*}
+  \Cov\left(g(X), h(X)\right) &= E(g(X)h(X)) - E(g(X))E(h(X))\\
+    &= 1 - 2E(g(X)).
+  \end{align*}
+  - **Wait:** we can't compute the covariance analytically without knowing $E(g(X))$. But if we knew that quantity, we wouldn't need MC integration...
+    + **Solution**: Estimate $\Cov\left(g(X), h(X)\right)$ using the sample covariance.
+    
+```{r}
+n <- 1000
+exp_vars <- rexp(n)
+g_est <- 1/(1 + exp_vars)
+h_est <- 1 + exp_vars
+
+(c_star <- -cov(g_est, h_est)) # Var(h(X)) = 1
+thetac_hat <- mean(g_est + c_star*(h_est - 2))
+sigmac_hat <- sd(g_est + c_star*(h_est - 2))
+c(thetac_hat, sigmac_hat/sqrt(n))
+```
+
+```{r}
+# Compare variance of classical MC vs control vars
+(var(g_est) - sigmac_hat^2) / var(g_est)
+```
+
+  - In other words, by using a control variate, we reduced the variance by approximately `r scales::percent((var(g_est) - sigmac_hat^2) / var(g_est))`!

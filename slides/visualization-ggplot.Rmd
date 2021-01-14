@@ -1,0 +1,422 @@
+---
+title: "Visualization--ggplot"
+draft: true
+source: true
+output: binb::metropolis
+fontsize: 12pt
+author: Max Turgeon
+institute: STAT 3150--Statistical Computing
+header-includes:
+  - \usefonttheme{professionalfonts}
+  - \usepackage{graphicx}
+  - \usepackage{tikzpagenodes}
+  - \usetikzlibrary{calc}
+  - \usepackage{caption}
+---
+
+```{r,setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+## Tidyverse
+
+  - For graphics, I personally prefer using `ggplot2` than base `R` functions.
+    + Of course, you're free to use whatever you prefer!
+  - Therefore, I often use the `tidyverse` packages to prepare data for visualization
+  - Great resources:
+    + The book [*R for Data Science*](https://r4ds.had.co.nz/)
+    + RStudio's [cheatsheets](https://www.rstudio.com/resources/cheatsheets/)
+
+## Pipe operator
+
+  - One of the important features of the `tidyverse` is the pipe operator `%>%`
+  - It takes the output of a function (or of an expression) and uses it as input for the next function (or expression)
+
+---
+
+```{r, message = FALSE, eval = TRUE}
+library(tidyverse)
+
+count(mtcars, cyl)
+```
+
+
+```{r, message = FALSE, eval = FALSE}
+# Or with the pipe
+# mtcars becomes the first argument of count
+mtcars %>% count(cyl)
+```
+
+## Pipe operator
+
+  - In more complex examples, with multiple function calls, the pipe operator improves readability.
+```{r eval = FALSE}
+# Without pipe operator
+fit_model(prepare_data(dataset))
+# With pipe operator
+dataset %>%
+  prepare_data %>% 
+  fit_model
+```
+
+## Main tidyverse functions {.allowframebreaks}
+
+  - All `tidyverse` functions take a `data.frame` as the first argument.
+    + For easy piping!
+  - A `data.frame` is a collection of vectors, all of the same length, but could be of different types.
+    + This is the main way of organizing data in `R`.
+
+\vspace{1in}
+
+```{r}
+# str shows the structure of an object
+str(ToothGrowth)
+```
+
+\vspace{1in}
+
+  - `mutate`: Create a new variable as a function of the other variables
+```{r eval = FALSE}
+# Switch to litres per 100km
+mutate(mtcars, litres_per_100km = mpg/235.215)
+```
+  - `filter`: Keep only rows for which some condition is `TRUE`
+```{r eval = FALSE}
+# Only keep rows where cyl is equal to 6 or 8
+filter(mtcars, cyl %in% c(6, 8))
+```
+
+\vspace{0.5in}
+
+  - `summarise`: Apply summary function to some variables. Often used with `group_by`.
+```{r eval = TRUE, message = FALSE}
+# Average mpg for each value of cyl
+mtcars %>% 
+  group_by(cyl) %>% 
+  summarise(avg_mpg = mean(mpg))
+```
+
+# Data Visualization
+
+## Main principles
+
+Why would we want to visualize data?
+
+  - Quality control
+  - Identify outliers
+  - Find patterns of interest (EDA)
+  
+## Visualizing multivariate data
+
+  - To start, you can visualize multivariate data one variable at a time.
+  - Therefore, you can use the same visualizing tools you're likely familiar with.
+  
+## Histogram {.allowframebreaks}
+
+```{r, message=FALSE}
+library(tidyverse)
+library(dslabs)
+
+dim(olive)
+
+# Create histogram for oleic acid
+ggplot(olive,
+       aes(x = oleic)) + 
+  geom_histogram()
+```
+
+```{r hist_fill, message=FALSE}
+# Look at distribution by region
+ggplot(olive,
+       aes(x = oleic, fill = region)) + 
+  geom_histogram()
+```
+
+
+```{r hist_dodge, message=FALSE}
+# Dodge instead of stack
+ggplot(olive,
+       aes(x = oleic, fill = region)) + 
+  geom_histogram(position = "dodge")
+```
+
+
+```{r hist_facet, message=FALSE}
+# Or with facets
+ggplot(olive, 
+       aes(x = oleic)) +
+  geom_histogram() +
+  facet_grid(. ~ region)
+```
+
+## Histogram--Summary
+
+  - **Histograms** help visualize the distribution of a single variable.
+    + It bins data and displays the counts in each bin
+  - `ggplot` takes a `data.frame` as input and maps variables to different features of the graph.
+    + `oleic` is mapped to the `x`-axis
+    + `region` is mapped to the `fill` colour.
+    + **Important**: This mapping happens inside the function `aes`.
+  - `ggplot` automatically takes care of choosing the colour, drawing the limits, and printing a legend.
+  - `facet_grid` can be used to display multiple plots together, one per value of the variable.
+
+## A more complex histogram {.allowframebreaks}
+
+```{r message = FALSE}
+# Create a copy of the data to serve as background
+olive_bg <- select(olive, -region)
+ggplot(olive, aes(x = oleic)) + 
+  # Start with grey background
+  geom_histogram(data = olive_bg, 
+                 fill = 'grey') +
+  # Add colour on top
+  geom_histogram(aes(fill = region)) +
+  facet_grid(. ~ region) +
+  # Move legend to top
+  theme(legend.position = 'top')
+```
+
+## Density plot {.allowframebreaks}
+
+  - Another way to estimate the density is with *kernel density estimators*.
+    + See STAT 3380--Nonparametric Statistics
+  - Let $X_1, \ldots, X_n$ be our IID sample. For $K$ a non-negative function and $h > 0$ a smoothing parameter, we have
+  $$ \hat{f}_n(x) = \frac{1}{nh} \sum_{i=1}^nK\left(\frac{x - X_i}{h}\right).$$
+  - Many functions $K$ can be used: gaussian, rectangular, triangular, Epanechnikov, biweight, cosine or optcosine (e.g. see [Wikipedia](https://en.wikipedia.org/wiki/Kernel_(statistics)#Kernel_functions_in_common_use))
+    + `R` uses a Gaussian kernel by default.
+
+```{r, message=FALSE}
+ggplot(olive, aes(x = oleic)) + 
+  geom_density()
+
+# Split by region
+ggplot(olive, aes(x = oleic,
+                  fill = region)) + 
+  geom_density()
+
+# Add transparency
+ggplot(olive, aes(x = oleic,
+                  fill = region)) + 
+  geom_density(alpha = 0.5)
+
+# Alternative: stacked density plots
+ggplot(olive, aes(x = oleic,
+                  fill = region)) + 
+  geom_density(position = "stack")
+```
+
+## Density plots--Summary
+
+  - **Density plots** can be thought of as *smoothed* histograms.
+  - We used a different *geom* to create the plot.
+    + `geom_smooth` as opposed to `geom_histogram`.
+  - The attribute `alpha` can be used to control transparency.
+    + `alpha = 0` is completely transparent
+    + `alpha = 1` is completely opaque.
+
+## ECDF plot {.allowframebreaks}
+
+  - The smoothing in density plots (and the binning in histograms) can hide important details, or even create artifacts
+  - Another way of looking at the distribution: **Empirical CDFs**
+    + Easily compute/compare quantiles
+    + Steepness corresponds to variance
+
+```{r, message=FALSE}
+ggplot(olive, aes(x = oleic)) + 
+  stat_ecdf()
+
+# Change y-axis label
+ggplot(olive, aes(x = oleic)) + 
+  stat_ecdf() + 
+  ylab("Cumulative Probability")
+
+# You can add a "rug":
+# A tick mark at the bottom for each observation
+ggplot(olive, aes(x = oleic)) + 
+  stat_ecdf() + 
+  geom_rug(sides = "b") + 
+  ylab("Cumulative Probability")
+
+# Split by region
+ggplot(olive, aes(x = oleic, 
+                  colour = region)) + 
+  stat_ecdf() + 
+  ylab("Cumulative Probability")
+```
+
+## ECDF plot--Summary
+
+  - ECDF plots are constructed by first summarising data:
+    + This is what `stat_ecdf` does.
+    + By default, the output of `stat_ecdf` is plotted using `geom_line` (see below).
+  - We can combine geoms to create more complex plots
+    + We added `geom_rug`.
+  - For lines and points, we use the aesthetic `colour`. For areas, we use `fill`.
+
+## Boxplot {.allowframebreaks}
+
+  - Box plots are a simple way to display important quantiles and identify outliers
+  - Components (per Tukey):
+    + A box delimiting the first and third quartile;
+    + A line indicating the median;
+    + Whiskers corresponding to the lowest datum still within 1.5 IQR of the lower quartile, and the highest datum still within 1.5 IQR of the upper quartile;
+    + Any datum that falls outside the whiskers is considered a (potential) outlier.
+
+```{r, message=FALSE}
+ggplot(olive, aes(x = oleic)) + 
+  geom_boxplot(y = 0) # y = 0 is a dummy value
+
+# Map region to y-axis
+ggplot(olive, aes(x = oleic, 
+                  y = region)) + 
+  geom_boxplot()
+
+# Add all points on top of boxplots
+ggplot(olive, aes(x = oleic, 
+                  y = region)) + 
+  geom_boxplot() +
+  geom_point()
+
+# Add vertical noise to the points to reduce overlap
+# Note: need to remove outliers or you will get 
+#       duplicates
+ggplot(olive, aes(x = oleic, 
+                  y = region)) + 
+  geom_boxplot(outlier.colour = NA) +
+  geom_jitter(height = 0.25, width = 0) 
+
+# Flip boxplots by switching the axes
+ggplot(olive, aes(x = region, 
+                  y = oleic)) + 
+  geom_boxplot()
+```
+
+# Bivariate plots
+
+## Scatter plot {.allowframebreaks}
+
+  - The plots above displayed information on a single variable at a time.
+  - The simplest way to represent the relationship between two variables is a *scatter plot*.
+  - Technically still possible with three variables, but typically more difficult to read.
+  
+```{r}
+ggplot(stars, aes(x = magnitude, 
+                  y = temp)) + 
+  geom_point()
+
+# Add colour for type of stars
+ggplot(stars, aes(x = magnitude, 
+                  y = temp,
+                  colour = type)) + 
+  geom_point()
+```
+
+```{r, echo = FALSE, eval = FALSE}
+library(scatterplot3d)
+
+greenhouse_gases %>% 
+  spread(gas, concentration) %>% 
+  with(scatterplot3d(CH4,   # x axis
+                     CO2,   # y axis
+                     N2O    # z axis
+))
+```
+
+## Bivariate density plot {.allowframebreaks}
+
+```{r}
+ggplot(stars, aes(x = magnitude, 
+                  y = temp)) + 
+  geom_density_2d()
+
+# We can add points on top of the contour lines
+ggplot(stars, aes(x = magnitude, 
+                  y = temp)) + 
+  geom_density_2d() +
+  geom_point()
+
+# We can colour points by star type
+# Note: colour is only defined for geom_point
+ggplot(stars, aes(x = magnitude, 
+                  y = temp)) + 
+  geom_density_2d() +
+  geom_point(aes(colour = type))
+```
+
+# Beyond two variables
+
+## Limitations
+
+  - As we saw, three-dimensional scatter plots can be hard to interpret.
+  - Density plots can technically be constructed for any dimension
+    + But as the dimension increases, its performance *decreases* rapidly
+  - **Solution**: We can look at each variable marginally and at each pairwise comparison.
+  
+## Pairs plot {.allowframebreaks}
+
+  - A pairs plot arranges these univariate summaries and pairwise comparisons along a matrix.
+  - Each variable corresponds to both a row and a column
+  - Univariate summaries appear on the diagonal, and pairwise comparisons off the diagonal.
+  - Because of symmetry, we often see a different summary of the comparison above and below the diagonal
+  - I will show two packages:
+    1. `GGally`
+    2. `ggforce`
+  
+```{r, message = FALSE}
+library(GGally)
+
+# Select three variables
+olive_sub <- olive %>% 
+  select(eicosenoic, arachidic, linolenic)
+
+ggpairs(olive_sub)
+```
+
+\vspace{0.5in}
+
+  - As we can see, `GGally` displays the following:
+    + Scatter plots below the diagonal
+    + Density plots on the diagonal
+    + Pearson correlations above the diagonal
+  - These can all be changed---see the documentation for more information.
+
+\vspace{0.5in}
+
+```{r, cache = FALSE, warning=FALSE, message = FALSE}
+library(ggforce)
+
+# By default: only scatterplots
+ggplot(olive_sub, aes(x = .panel_x, 
+                      y = .panel_y)) + 
+  geom_point() + 
+  facet_matrix(vars(everything()))
+
+# geom_autodensity adds density plots
+# layer.diag = 2 restricts it to the diagonal
+ggplot(olive_sub, aes(x = .panel_x, 
+                      y = .panel_y)) + 
+  geom_point() + 
+  geom_autodensity() +
+  facet_matrix(vars(everything()),
+               layer.diag = 2)
+
+# geom_density2d adds 2d density plots
+# layer.diag = 3 restricts it to above the diagonal
+ggplot(olive_sub, aes(x = .panel_x, 
+                      y = .panel_y)) + 
+  geom_point() + 
+  geom_autodensity() +
+  geom_density2d() +
+  facet_matrix(vars(everything()), 
+               layer.diag = 2, 
+               layer.upper = 3)
+```
+
+  - `ggforce` is quite flexible, but the syntax is a bit confusing.
+    + `x = .panel_x` and `y = .panel_y`??
+    + The order of the geoms is important, because it's used in `facet_matrix` to determine where everything goes.
+  - Nevertheless, the package is powerful, and it does a lot more than pairs plots!
+    + `facet_zoom` to zoom in on a subset of the data on a separate panel
+    + Voronoi tessalation and Delauney triangulation
+    + Sina plots
+    + etc.
